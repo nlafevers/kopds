@@ -1,4 +1,4 @@
-# KOPDS - Professional Lightweight OPDS Server
+# KOPDS - Lightweight OPDS Server
 
 KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution System) server designed specifically for self-hosting Calibre libraries. It is engineered for large libraries (10,000+ books) hosted on high-latency network shares (e.g., Nextcloud, SMB, NFS) and is perfectly tailored for the KOReader ecosystem.
 
@@ -17,6 +17,7 @@ While many OPDS servers exist, KOPDS focuses on three core pillars:
 - **Instant Search:** Powered by SQLite FTS5 for rapid, full-text search across titles, authors, tags, and series.
 - **Production-Ready:** Structured logging, multi-user support, and comprehensive test coverage.
 - **Zero-Dependency Architecture:** Minimal external requirements; perfect for containerized deployments.
+- **Clean Architecture Approach:** Domain logic is separated from infrastructure concerns. It features a background scanner that incrementally synchronizes your library, an optimized media delivery pipeline, and a robust API layer for OPDS delivery.
 
 ## Quick Start
 
@@ -45,11 +46,5 @@ log_level: info
 ./kopds --config config.yaml
 ```
 
-## Architecture
-KOPDS utilizes a Clean Architecture approach, separating domain logic from infrastructure concerns. It features a background scanner that incrementally synchronizes your library, an optimized media delivery pipeline, and a robust API layer for OPDS delivery.
-
-## Development
-This project welcomes contributions. Please refer to our [Development Conventions](GEMINI.md) for guidelines on code style, testing, and contribution workflows.
-
 ## License
-[Insert License Here - e.g., MIT or Apache 2.0]
+MIT
