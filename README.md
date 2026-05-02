@@ -46,5 +46,8 @@ log_level: info
 ./kopds --config config.yaml
 ```
 
+### Development
+This project is still under active development and is not yet ready for deployment.
+
 ## License
 GPL-3.0 license
