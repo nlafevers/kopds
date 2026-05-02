@@ -47,4 +47,4 @@ log_level: info
 ```
 
 ## License
-MIT
+GPL-3.0 license
