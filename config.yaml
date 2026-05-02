@@ -1,0 +1,6 @@
+library_path: .calibre
+database_path: ./data/kopds.db
+port: 8080
+log_level: debug
+json_log: false
+sync_interval: 30m

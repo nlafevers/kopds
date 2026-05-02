@@ -1,0 +1,17 @@
+# Binaries and log
+kopds
+*.log
+
+# Databases and temporary files
+*.db
+*.db-shm
+*.db-wal
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# AI files
+AGENT.md
+GEMINI.md
+CLAUDE.md
