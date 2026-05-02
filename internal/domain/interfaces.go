@@ -1,0 +1,26 @@
+package domain
+
+import "context"
+
+// BookRepository defines the interface for book data access.
+type BookRepository interface {
+	GetByID(ctx context.Context, id int64) (*Book, error)
+	Search(ctx context.Context, query string, limit, offset int) ([]Book, error)
+	ListRecent(ctx context.Context, limit, offset int) ([]Book, error)
+	ListByAuthor(ctx context.Context, authorID int64, limit, offset int) ([]Book, error)
+	ListBySeries(ctx context.Context, seriesID int64, limit, offset int) ([]Book, error)
+	Upsert(ctx context.Context, book *Book) error
+	GetSyncState(ctx context.Context, key string) (string, error)
+	SetSyncState(ctx context.Context, key, value string) error
+}
+
+// UserRepository defines the interface for user data access.
+type UserRepository interface {
+	GetByUsername(ctx context.Context, username string) (*User, error)
+	Save(ctx context.Context, user *User) error
+}
+
+// Indexer defines the interface for the background synchronization engine.
+type Indexer interface {
+	Sync(ctx context.Context) error
+}
