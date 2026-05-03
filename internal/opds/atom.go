@@ -81,11 +81,13 @@ type Content struct {
 }
 
 // NewFeed creates a new Feed with the standard OPDS 1.2 namespaces.
-func NewFeed(title, id string) Feed {
+func NewFeed(title, id string, links []Link) Feed {
 	return Feed{
-		Xmlns: AtomNamespace,
-		Opds:  OPDSNamespace,
-		Title: title,
-		ID:    id,
+		Xmlns:   AtomNamespace,
+		Opds:    OPDSNamespace,
+		Title:   title,
+		ID:      id,
+		Updated: time.Now(),
+		Links:   links,
 	}
 }
