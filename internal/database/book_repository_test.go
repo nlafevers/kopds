@@ -93,7 +93,7 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 	}
 
 	// Test Search
-	books, err := repo.Search(ctx, "Go", 10, 0)
+	books, total, err := repo.Search(ctx, "Go", 10, 0)
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
@@ -102,12 +102,16 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 		t.Fatal("expected search results, got none")
 	}
 
+	if total == 0 {
+		t.Fatal("expected total > 0, got 0")
+	}
+
 	if books[0].Title != book.Title {
 		t.Errorf("expected search result title %s, got %s", book.Title, books[0].Title)
 	}
 
 	// Test Search by Author
-	books, err = repo.Search(ctx, "Kernighan", 10, 0)
+	books, _, err = repo.Search(ctx, "Kernighan", 10, 0)
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
@@ -116,7 +120,7 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 	}
 
 	// Test ListRecent
-	recent, err := repo.ListRecent(ctx, 10, 0)
+	recent, _, err := repo.ListRecent(ctx, 10, 0)
 	if err != nil {
 		t.Fatalf("ListRecent failed: %v", err)
 	}
@@ -125,7 +129,7 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 	}
 
 	// Test ListByAuthor
-	byAuthor, err := repo.ListByAuthor(ctx, book.Authors[0].ID, 10, 0)
+	byAuthor, _, err := repo.ListByAuthor(ctx, book.Authors[0].ID, 10, 0)
 	if err != nil {
 		t.Fatalf("ListByAuthor failed: %v", err)
 	}
@@ -134,7 +138,7 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 	}
 
 	// Test ListBySeries
-	bySeries, err := repo.ListBySeries(ctx, book.Series.ID, 10, 0)
+	bySeries, _, err := repo.ListBySeries(ctx, book.Series.ID, 10, 0)
 	if err != nil {
 		t.Fatalf("ListBySeries failed: %v", err)
 	}

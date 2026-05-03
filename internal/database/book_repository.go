@@ -140,7 +140,14 @@ func (r *sqliteBookRepository) getFormats(ctx context.Context, bookID int64) ([]
 	return formats, nil
 }
 
-func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, offset int) ([]domain.Book, error) {
+func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, offset int) ([]domain.Book, int, error) {
+	countQuery := `SELECT COUNT(*) FROM books_search WHERE books_search MATCH ?`
+	var total int
+	err := r.db.QueryRowContext(ctx, countQuery, query).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("search count failed: %w", err)
+	}
+
 	sqlQuery := `
 		SELECT b.id
 		FROM books_search bs
@@ -151,7 +158,7 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 
 	rows, err := r.db.QueryContext(ctx, sqlQuery, query, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("search failed: %w", err)
+		return nil, 0, fmt.Errorf("search failed: %w", err)
 	}
 	defer rows.Close()
 
@@ -159,25 +166,38 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		book, err := r.GetByID(ctx, id)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if book != nil {
 			books = append(books, *book)
 		}
 	}
-	return books, nil
+	return books, total, nil
 }
 
-func (r *sqliteBookRepository) ListRecent(ctx context.Context, limit, offset int) ([]domain.Book, error) {
+func (r *sqliteBookRepository) ListRecent(ctx context.Context, limit, offset int) ([]domain.Book, int, error) {
+	var total int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM books").Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count books: %w", err)
+	}
+
 	query := `SELECT id FROM books ORDER BY timestamp DESC LIMIT ? OFFSET ?`
-	return r.listBooks(ctx, query, limit, offset)
+	books, err := r.listBooks(ctx, query, limit, offset)
+	return books, total, err
 }
 
-func (r *sqliteBookRepository) ListByAuthor(ctx context.Context, authorID int64, limit, offset int) ([]domain.Book, error) {
+func (r *sqliteBookRepository) ListByAuthor(ctx context.Context, authorID int64, limit, offset int) ([]domain.Book, int, error) {
+	var total int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM books_authors_link WHERE author_id = ?", authorID).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count author books: %w", err)
+	}
+
 	query := `
 		SELECT b.id 
 		FROM books b
@@ -185,17 +205,89 @@ func (r *sqliteBookRepository) ListByAuthor(ctx context.Context, authorID int64,
 		WHERE bal.author_id = ?
 		ORDER BY b.sort ASC
 		LIMIT ? OFFSET ?`
-	return r.listBooks(ctx, query, authorID, limit, offset)
+	books, err := r.listBooks(ctx, query, authorID, limit, offset)
+	return books, total, err
 }
 
-func (r *sqliteBookRepository) ListBySeries(ctx context.Context, seriesID int64, limit, offset int) ([]domain.Book, error) {
+func (r *sqliteBookRepository) ListBySeries(ctx context.Context, seriesID int64, limit, offset int) ([]domain.Book, int, error) {
+	var total int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM books WHERE series_id = ?", seriesID).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count series books: %w", err)
+	}
+
 	query := `
 		SELECT id 
 		FROM books 
 		WHERE series_id = ?
 		ORDER BY series_index ASC, sort ASC
 		LIMIT ? OFFSET ?`
-	return r.listBooks(ctx, query, seriesID, limit, offset)
+	books, err := r.listBooks(ctx, query, seriesID, limit, offset)
+	return books, total, err
+}
+
+func (r *sqliteBookRepository) ListAuthors(ctx context.Context, limit, offset int) ([]domain.AuthorWithCount, int, error) {
+	var total int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM authors").Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count authors: %w", err)
+	}
+
+	query := `
+		SELECT a.id, a.name, a.sort, COUNT(bal.book_id) as book_count
+		FROM authors a
+		LEFT JOIN books_authors_link bal ON a.id = bal.author_id
+		GROUP BY a.id
+		ORDER BY a.sort ASC
+		LIMIT ? OFFSET ?`
+
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list authors: %w", err)
+	}
+	defer rows.Close()
+
+	var authors []domain.AuthorWithCount
+	for rows.Next() {
+		var a domain.AuthorWithCount
+		if err := rows.Scan(&a.ID, &a.Name, &a.Sort, &a.BookCount); err != nil {
+			return nil, 0, err
+		}
+		authors = append(authors, a)
+	}
+	return authors, total, nil
+}
+
+func (r *sqliteBookRepository) ListSeries(ctx context.Context, limit, offset int) ([]domain.SeriesWithCount, int, error) {
+	var total int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM series").Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count series: %w", err)
+	}
+
+	query := `
+		SELECT s.id, s.name, COUNT(b.id) as book_count
+		FROM series s
+		LEFT JOIN books b ON s.id = b.series_id
+		GROUP BY s.id
+		ORDER BY s.name ASC
+		LIMIT ? OFFSET ?`
+
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list series: %w", err)
+	}
+	defer rows.Close()
+
+	var series []domain.SeriesWithCount
+	for rows.Next() {
+		var s domain.SeriesWithCount
+		if err := rows.Scan(&s.ID, &s.Name, &s.BookCount); err != nil {
+			return nil, 0, err
+		}
+		series = append(series, s)
+	}
+	return series, total, nil
 }
 
 func (r *sqliteBookRepository) listBooks(ctx context.Context, query string, args ...interface{}) ([]domain.Book, error) {
