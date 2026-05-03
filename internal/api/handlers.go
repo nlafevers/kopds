@@ -87,6 +87,11 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lastPage := (total + service.DefaultPageSize - 1) / service.DefaultPageSize
+	if lastPage == 0 {
+		lastPage = 1
+	}
+
 	links := []opds.Link{
 		{
 			Rel:   "self",
@@ -111,7 +116,7 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if total > page*service.DefaultPageSize {
+	if page < lastPage {
 		links = append(links, opds.Link{
 			Rel:   "next",
 			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
@@ -119,6 +124,13 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 			Title: "Next Page",
 		})
 	}
+
+	links = append(links, opds.Link{
+		Rel:   "last",
+		Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+		Href:  h.LinkGenerator.AuthorsList(lastPage),
+		Title: "Last Page",
+	})
 
 	feed := opds.NewFeed("Authors", "authors-list", links)
 
@@ -166,6 +178,11 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lastPage := (total + service.DefaultPageSize - 1) / service.DefaultPageSize
+	if lastPage == 0 {
+		lastPage = 1
+	}
+
 	links := []opds.Link{
 		{
 			Rel:   "self",
@@ -190,7 +207,7 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if total > page*service.DefaultPageSize {
+	if page < lastPage {
 		links = append(links, opds.Link{
 			Rel:   "next",
 			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
@@ -198,6 +215,13 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 			Title: "Next Page",
 		})
 	}
+
+	links = append(links, opds.Link{
+		Rel:   "last",
+		Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+		Href:  h.LinkGenerator.SeriesList(lastPage),
+		Title: "Last Page",
+	})
 
 	feed := opds.NewFeed("Series", "series-list", links)
 
@@ -229,3 +253,102 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode feed", http.StatusInternalServerError)
 	}
 }
+
+// NewestFeedHandler returns a paginated list of the newest books in the OPDS catalog.
+func (h *Handler) NewestFeedHandler(w http.ResponseWriter, r *http.Request) {
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if val, err := strconv.Atoi(p); err == nil && val > 0 {
+			page = val
+		}
+	}
+
+	books, total, err := h.BookService.GetRecentBooks(r.Context(), page)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	lastPage := (total + service.DefaultPageSize - 1) / service.DefaultPageSize
+	if lastPage == 0 {
+		lastPage = 1
+	}
+
+	links := []opds.Link{
+		{
+			Rel:   "self",
+			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+			Href:  h.LinkGenerator.NewestBooks(page),
+			Title: "Newest Books",
+		},
+		{
+			Rel:   "first",
+			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+			Href:  h.LinkGenerator.NewestBooks(1),
+			Title: "First Page",
+		},
+	}
+
+	if page > 1 {
+		links = append(links, opds.Link{
+			Rel:   "previous",
+			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+			Href:  h.LinkGenerator.NewestBooks(page - 1),
+			Title: "Previous Page",
+		})
+	}
+
+	if page < lastPage {
+		links = append(links, opds.Link{
+			Rel:   "next",
+			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+			Href:  h.LinkGenerator.NewestBooks(page + 1),
+			Title: "Next Page",
+		})
+	}
+
+	links = append(links, opds.Link{
+		Rel:   "last",
+		Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+		Href:  h.LinkGenerator.NewestBooks(lastPage),
+		Title: "Last Page",
+	})
+
+	feed := opds.NewFeed("Newest Books", "newest-list", links)
+
+	for _, book := range books {
+		entry := &opds.Entry{
+			ID:      fmt.Sprintf("book:%d", book.ID),
+			Title:   book.Title,
+			Updated: book.LastModified,
+			Summary: &opds.Content{
+				Text: book.Description,
+			},
+		}
+
+		for _, author := range book.Authors {
+			entry.Authors = append(entry.Authors, opds.Author{
+				Name: author.Name,
+			})
+		}
+
+		// Acquisition links (Step 3.7 will enhance this)
+		entry.Links = append(entry.Links, opds.Link{
+			Rel:   "http://opds-spec.org/acquisition",
+			Type:  "application/epub+zip", // Defaulting to epub for now
+			Href:  h.LinkGenerator.BookDetail(strconv.FormatInt(book.ID, 10)),
+			Title: "Download",
+		})
+
+		feed.Entries = append(feed.Entries, entry)
+	}
+
+	w.Header().Set("Content-Type", "application/atom+xml;profile=opds-catalog;kind=navigation;charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	w.Write([]byte(xml.Header))
+	if err := xml.NewEncoder(w).Encode(feed); err != nil {
+		http.Error(w, "Failed to encode feed", http.StatusInternalServerError)
+	}
+}
+
