@@ -13,6 +13,7 @@ import (
 type Config struct {
 	LibraryPath  string        `mapstructure:"library_path"`
 	DatabasePath string        `mapstructure:"database_path"`
+	BaseURL      string        `mapstructure:"base_url"`
 	Port         int           `mapstructure:"port"`
 	LogLevel     string        `mapstructure:"log_level"`
 	JSONLog      bool          `mapstructure:"json_log"`
@@ -28,6 +29,7 @@ func Load() (*Config, error) {
 
 	viper.SetDefault("port", 8080)
 	viper.SetDefault("database_path", "kopds.db")
+	viper.SetDefault("base_url", "http://localhost:8080")
 	viper.SetDefault("log_level", "info")
 	viper.SetDefault("json_log", false)
 	viper.SetDefault("sync_interval", "30m")
