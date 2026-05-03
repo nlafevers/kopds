@@ -150,3 +150,82 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode feed", http.StatusInternalServerError)
 	}
 }
+
+// SeriesFeedHandler returns a paginated list of series in the OPDS catalog.
+func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if val, err := strconv.Atoi(p); err == nil && val > 0 {
+			page = val
+		}
+	}
+
+	series, total, err := h.BookService.GetSeries(r.Context(), page)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	links := []opds.Link{
+		{
+			Rel:   "self",
+			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+			Href:  h.LinkGenerator.SeriesList(page),
+			Title: "Series",
+		},
+		{
+			Rel:   "first",
+			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+			Href:  h.LinkGenerator.SeriesList(1),
+			Title: "First Page",
+		},
+	}
+
+	if page > 1 {
+		links = append(links, opds.Link{
+			Rel:   "previous",
+			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+			Href:  h.LinkGenerator.SeriesList(page - 1),
+			Title: "Previous Page",
+		})
+	}
+
+	if total > page*service.DefaultPageSize {
+		links = append(links, opds.Link{
+			Rel:   "next",
+			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+			Href:  h.LinkGenerator.SeriesList(page + 1),
+			Title: "Next Page",
+		})
+	}
+
+	feed := opds.NewFeed("Series", "series-list", links)
+
+	for _, s := range series {
+		summary := fmt.Sprintf("%d books", s.BookCount)
+		entry := &opds.Entry{
+			ID:    fmt.Sprintf("series:%d", s.ID),
+			Title: s.Name,
+			Summary: &opds.Content{
+				Text: summary,
+			},
+			Links: []opds.Link{
+				{
+					Rel:   "subsection",
+					Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+					Href:  h.LinkGenerator.SeriesDetail(strconv.FormatInt(s.ID, 10), 0),
+					Title: s.Name,
+				},
+			},
+		}
+		feed.Entries = append(feed.Entries, entry)
+	}
+
+	w.Header().Set("Content-Type", "application/atom+xml;profile=opds-catalog;kind=navigation;charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	w.Write([]byte(xml.Header))
+	if err := xml.NewEncoder(w).Encode(feed); err != nil {
+		http.Error(w, "Failed to encode feed", http.StatusInternalServerError)
+	}
+}
