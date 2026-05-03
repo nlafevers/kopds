@@ -97,7 +97,7 @@ func TestSyncEngine_Sync(t *testing.T) {
 	}
 
 	// Verify book was upserted
-	recent, err := repo.ListRecent(ctx, 10, 0)
+	recent, _, err := repo.ListRecent(ctx, 10, 0)
 	if err != nil {
 		t.Fatalf("Failed to list recent books: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestSyncEngine_Sync(t *testing.T) {
 		t.Fatalf("Third sync failed: %v", err)
 	}
 
-	recent, _ = repo.ListRecent(ctx, 10, 0)
+	recent, _, _ = repo.ListRecent(ctx, 10, 0)
 	if recent[0].Title != "Updated Title" {
 		t.Errorf("Expected updated title 'Updated Title', got '%s'", recent[0].Title)
 	}

@@ -32,6 +32,12 @@ type Author struct {
 	Sort string `json:"sort" db:"sort"`
 }
 
+// AuthorWithCount represents an author with the number of books they have.
+type AuthorWithCount struct {
+	Author
+	BookCount int `json:"book_count"`
+}
+
 // Tag represents a book tag/category.
 type Tag struct {
 	ID   int64  `json:"id" db:"id"`
@@ -42,6 +48,12 @@ type Tag struct {
 type Series struct {
 	ID   int64  `json:"id" db:"id"`
 	Name string `json:"name" db:"name"`
+}
+
+// SeriesWithCount represents a series with the number of books in it.
+type SeriesWithCount struct {
+	Series
+	BookCount int `json:"book_count"`
 }
 
 // Format represents a physical file format of a book.

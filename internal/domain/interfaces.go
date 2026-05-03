@@ -5,10 +5,12 @@ import "context"
 // BookRepository defines the interface for book data access.
 type BookRepository interface {
 	GetByID(ctx context.Context, id int64) (*Book, error)
-	Search(ctx context.Context, query string, limit, offset int) ([]Book, error)
-	ListRecent(ctx context.Context, limit, offset int) ([]Book, error)
-	ListByAuthor(ctx context.Context, authorID int64, limit, offset int) ([]Book, error)
-	ListBySeries(ctx context.Context, seriesID int64, limit, offset int) ([]Book, error)
+	Search(ctx context.Context, query string, limit, offset int) ([]Book, int, error)
+	ListRecent(ctx context.Context, limit, offset int) ([]Book, int, error)
+	ListByAuthor(ctx context.Context, authorID int64, limit, offset int) ([]Book, int, error)
+	ListBySeries(ctx context.Context, seriesID int64, limit, offset int) ([]Book, int, error)
+	ListAuthors(ctx context.Context, limit, offset int) ([]AuthorWithCount, int, error)
+	ListSeries(ctx context.Context, limit, offset int) ([]SeriesWithCount, int, error)
 	Upsert(ctx context.Context, book *Book) error
 	GetSyncState(ctx context.Context, key string) (string, error)
 	SetSyncState(ctx context.Context, key, value string) error
