@@ -227,12 +227,41 @@ func (h *Handler) BookDetailHandler(w http.ResponseWriter, r *http.Request) {
 			Href: h.LinkGenerator.BookDetail(idStr),
 		},
 	}
-
-	feed := opds.NewFeed(book.Title, "book-detail-"+idStr, links)
-	h.appendBookEntries(&feed, []domain.Book{*book})
-	h.sendFeed(w, feed)
+feed := opds.NewFeed(book.Title, "book-detail-"+idStr, links)
+h.appendBookEntries(&feed, []domain.Book{*book})
+h.sendFeed(w, feed)
 }
 
+// SearchFeedHandler returns a paginated list of books matching the search query.
+func (h *Handler) SearchFeedHandler(w http.ResponseWriter, r *http.Request) {
+query := r.URL.Query().Get("q")
+page := getPage(r)
+
+if query == "" {
+	// Return empty feed or bad request? Standard OPDS usually just returns empty feed.
+	feed := opds.NewFeed("Search Results", "search-results", nil)
+	h.sendFeed(w, feed)
+	return
+}
+
+books, total, err := h.BookService.SearchBooks(r.Context(), query, page)
+if err != nil {
+	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	return
+}
+
+lastPage := calculateLastPage(total)
+linkFunc := func(p int) string {
+	return fmt.Sprintf("%s?q=%s", h.LinkGenerator.Search(p), query)
+}
+links := h.generatePaginationLinks(linkFunc, page, lastPage, "Search Results")
+feed := opds.NewFeed("Search Results: "+query, "search-results", links)
+
+h.appendBookEntries(&feed, books)
+h.sendFeed(w, feed)
+}
+
+// Helpers
 // OpenSearchDescriptorHandler serves the OpenSearch description XML.
 func (h *Handler) OpenSearchDescriptorHandler(w http.ResponseWriter, r *http.Request) {
 	searchURL := h.LinkGenerator.Search(0)
