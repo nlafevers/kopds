@@ -14,6 +14,7 @@ import (
 	"github.com/nlafevers/kopds/internal/api"
 	"github.com/nlafevers/kopds/internal/config"
 	"github.com/nlafevers/kopds/internal/database"
+	"github.com/nlafevers/kopds/internal/image"
 	"github.com/nlafevers/kopds/internal/logger"
 	"github.com/nlafevers/kopds/internal/scanner"
 	"github.com/nlafevers/kopds/internal/service"
@@ -59,9 +60,14 @@ func main() {
 	go scanner.StartWorker(workerCtx, engine, cfg.SyncInterval, log)
 
 	// 6. Initialize Handlers
+	imageCache, err := image.NewDiskCache(cfg.ImageCachePath, cfg.ImageCacheMaxCount)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize image cache")
+	}
+
 	linkGen := utils.NewLinkGenerator(cfg.BaseURL)
 	bookService := service.NewBookService(bookRepo, linkGen)
-	h := api.NewHandler(bookService, linkGen)
+	h := api.NewHandler(bookService, linkGen, imageCache, cfg.LibraryPath)
 
 	// 7. Setup Router
 	r := chi.NewRouter()
@@ -86,6 +92,7 @@ func main() {
 		r.Get("/newest", h.NewestFeedHandler)
 		r.Get("/books/{id}", h.BookDetailHandler)
 		r.Get("/search", h.SearchFeedHandler)
+		r.Get("/cover/{id}", h.CoverHandler)
 		r.Get("/opensearch.xml", h.OpenSearchDescriptorHandler)
 		})	// 8. Start Server
 	srv := &http.Server{
