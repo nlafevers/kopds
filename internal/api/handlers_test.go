@@ -377,3 +377,45 @@ func TestNewestFeedHandler(t *testing.T) {
 		t.Errorf("missing pagination links on page 2: %v", expectedRels)
 	}
 }
+
+func TestOpenSearchDescriptorHandler(t *testing.T) {
+	// Setup
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	svc := service.NewBookService(nil, linkGen)
+	h := NewHandler(svc, linkGen)
+
+	req, _ := http.NewRequest("GET", "/opds/v1.2/opensearch.xml", nil)
+	rr := httptest.NewRecorder()
+
+	// Execute
+	h.OpenSearchDescriptorHandler(rr, req)
+
+	// Assert
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	expectedContentType := "application/opensearchdescription+xml; charset=utf-8"
+	if contentType := rr.Header().Get("Content-Type"); contentType != expectedContentType {
+		t.Errorf("handler returned wrong content type: got %v want %v", contentType, expectedContentType)
+	}
+
+	var osd OpenSearchDescription
+	err := xml.Unmarshal(rr.Body.Bytes(), &osd)
+	if err != nil {
+		t.Fatalf("failed to unmarshal XML: %v", err)
+	}
+
+	if osd.ShortName != "KOPDS" {
+		t.Errorf("expected ShortName 'KOPDS', got '%s'", osd.ShortName)
+	}
+
+	expectedTemplate := "http://localhost:8080/opds/v1.2/search?q={searchTerms}"
+	if osd.Url.Template != expectedTemplate {
+		t.Errorf("expected template '%s', got '%s'", expectedTemplate, osd.Url.Template)
+	}
+
+	if osd.Url.Type != "application/atom+xml" {
+		t.Errorf("expected type 'application/atom+xml', got '%s'", osd.Url.Type)
+	}
+}
