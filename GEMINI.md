@@ -84,49 +84,69 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 
 - [ ] **Phase 4: Image & File Delivery**
 
-  - **Step 4.1 (Agent L):** Create `internal/image/resizer.go` and implement `Resize(src io.Reader, width, height int) ([]byte, error)`.
-    - *Task:* Use `disintegration/imaging` to perform high-quality, efficient thumbnail generation.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 4.1:**
+    - Create `internal/image/resizer.go` and implement `Resize(src io.Reader, width, height int) ([]byte, error)`.
+    - Use `disintegration/imaging` to perform high-quality, efficient thumbnail generation.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
-  - **Step 4.2 (Agent L):** Implement `internal/image/cache.go` for LRU (Least Recently Used) disk-based caching.
-    - *Task:* Create a `DiskCache` struct that manages a directory of images, ensuring we don't exceed a defined max size/count.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 4.2:**
+    - Implement `internal/image/cache.go` for LRU (Least Recently Used) disk-based caching.
+    - Create a `DiskCache` struct that manages a directory of images, ensuring we don't exceed a defined max size/count.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
-  - **Step 4.3 (Agent L):** Implement `CoverHandler` in `internal/api/handlers.go`.
-    - *Task:* Create the endpoint `/opds/v1.2/cover/{bookID}` that checks the cache first, resizes if missing, and streams the image.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 4.3:**
+    - Implement `CoverHandler` in `internal/api/handlers.go`.
+    - Create the endpoint `/opds/v1.2/cover/{bookID}` that checks the cache first, resizes if missing, and streams the image.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
-  - **Step 4.4 (Agent M):** Implement `BookFileHandler` in `internal/api/handlers.go`.
-    - *Task:* Create the endpoint `/opds/v1.2/download/{bookID}/{format}` to stream book files from the Calibre library.
-    - *Action:* Set correct `Content-Type` and `Content-Disposition` headers.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 4.4:**
+    - Implement `BookFileHandler` in `internal/api/handlers.go`.
+    - Create the endpoint `/opds/v1.2/download/{bookID}/{format}` to stream book files from the Calibre library.
+    - Set correct `Content-Type` and `Content-Disposition` headers.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
-  - **Step 4.5 (QA):** Verify image caching and streaming performance.
-    - *Task:* Perform load tests on the image cache and verify successful book downloads in KOReader.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 4.5:**
+    - Verify image caching and streaming performance.
+    - Perform load tests on the image cache and verify successful book downloads in KOReader.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
 
 - [ ] **Phase 5: Multi-User & Security**
 
-  - **Step 5.1 (Agent N):** Implement `internal/api/auth.go` for password hashing and verification.
-    - *Task:* Use `golang.org/x/crypto/bcrypt` to implement `HashPassword(password string)` and `CheckPasswordHash(password, hash string)`.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 5.1:**
+    - Implement `internal/api/auth.go` for password hashing and verification.
+    - Use `golang.org/x/crypto/bcrypt` to implement `HashPassword(password string)` and `CheckPasswordHash(password, hash string)`.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
-  - **Step 5.2 (Agent N):** Implement `AuthMiddleware` in `internal/api/middleware.go`.
-    - *Task:* Implement an HTTP Basic Auth middleware that checks user credentials against the database.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 5.2:**
+    - Implement `AuthMiddleware` in `internal/api/middleware.go`.
+    - Implement an HTTP Basic Auth middleware that checks user credentials against the database.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
-  - **Step 5.3 (Agent N):** Implement `UserRepository` logic for user management in `internal/database/user_repository.go`.
-    - *Task:* Complete the implementation of `Save`, `GetByUsername`, and `DeleteUser`.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 5.3:**
+    - Implement `UserRepository` logic for user management in `internal/database/user_repository.go`.
+    - Complete the implementation of `Save`, `GetByUsername`, and `DeleteUser`.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
-  - **Step 5.4 (Agent N):** Implement `AdminHandler` for basic user creation.
-    - *Task:* Create a secure command-line or internal endpoint for creating the initial admin user.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 5.4:**
+    - Implement `AdminHandler` for basic user creation.
+    - Create a secure command-line or internal endpoint for creating the initial admin user.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
-  - **Step 5.5 (QA):** Perform security audit.
-    - *Task:* Verify that all routes (except health check) are protected and that credentials are not logged.
-    - *Action:* Commit changes to git and update GEMINI.md roadmap status.
+  - **Step 5.5:**
+    - Perform security audit.
+    - Verify that all routes (except health check) are protected and that credentials are not logged.
+    - Update GEMINI.md roadmap status.
+    - Commit changes to git with an appropriate message.
 
 
 ## Development Conventions
