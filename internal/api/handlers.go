@@ -233,6 +233,45 @@ func (h *Handler) BookDetailHandler(w http.ResponseWriter, r *http.Request) {
 	h.sendFeed(w, feed)
 }
 
+// OpenSearchDescriptorHandler serves the OpenSearch description XML.
+func (h *Handler) OpenSearchDescriptorHandler(w http.ResponseWriter, r *http.Request) {
+	searchURL := h.LinkGenerator.Search(0)
+	osd := OpenSearchDescription{
+		ShortName:      "KOPDS",
+		Description:    "Search the KOPDS Catalog",
+		InputEncoding:  "UTF-8",
+		OutputEncoding: "UTF-8",
+		Url: OSDUrl{
+			Type:     "application/atom+xml",
+			Template: fmt.Sprintf("%s?q={searchTerms}", searchURL),
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/opensearchdescription+xml; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	w.Write([]byte(xml.Header))
+	if err := xml.NewEncoder(w).Encode(osd); err != nil {
+		http.Error(w, "Failed to encode OpenSearch Description", http.StatusInternalServerError)
+	}
+}
+
+// OpenSearchDescription represents the OpenSearch Description Document.
+type OpenSearchDescription struct {
+	XMLName        xml.Name `xml:"http://a9.com/-/spec/opensearch/1.1/ OpenSearchDescription"`
+	ShortName      string   `xml:"ShortName"`
+	Description    string   `xml:"Description"`
+	InputEncoding  string   `xml:"InputEncoding"`
+	OutputEncoding string   `xml:"OutputEncoding"`
+	Url            OSDUrl   `xml:"Url"`
+}
+
+// OSDUrl represents the Url element in the OpenSearch Description Document.
+type OSDUrl struct {
+	Type     string `xml:"type,attr"`
+	Template string `xml:"template,attr"`
+}
+
 // Helpers
 
 func getPage(r *http.Request) int {
