@@ -30,7 +30,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
   - [x] Implement search indexing with SQLite FTS5.
   - [x] Add background worker to trigger sync on file changes or timer.
 
-- [ ] **Phase 3: OPDS 1.2 Implementation**
+- [x] **Phase 3: OPDS 1.2 Implementation**
 
   - [x] **Step 3.0 (Agent I):** Implement `pkg/utils/link.go` as a `LinkGenerator`.
     - *Task:* Create a struct that takes the base URL and provides methods to build navigation and acquisition URLs for the OPDS catalog. Support dynamic page index manipulation.
