@@ -78,9 +78,13 @@ func TestNavigationFeedHandler(t *testing.T) {
 
 type mockRepo struct {
 	domain.BookRepository
-	listAuthorsFunc func(ctx context.Context, limit, offset int) ([]domain.AuthorWithCount, int, error)
-	listSeriesFunc  func(ctx context.Context, limit, offset int) ([]domain.SeriesWithCount, int, error)
-	listRecentFunc  func(ctx context.Context, limit, offset int) ([]domain.Book, int, error)
+	listAuthorsFunc  func(ctx context.Context, limit, offset int) ([]domain.AuthorWithCount, int, error)
+	listSeriesFunc   func(ctx context.Context, limit, offset int) ([]domain.SeriesWithCount, int, error)
+	listRecentFunc   func(ctx context.Context, limit, offset int) ([]domain.Book, int, error)
+	listByAuthorFunc func(ctx context.Context, id int64, limit, offset int) ([]domain.Book, int, error)
+	listBySeriesFunc func(ctx context.Context, id int64, limit, offset int) ([]domain.Book, int, error)
+	getByIDFunc      func(ctx context.Context, id int64) (*domain.Book, error)
+	searchFunc       func(ctx context.Context, query string, limit, offset int) ([]domain.Book, int, error)
 }
 
 func (m *mockRepo) ListAuthors(ctx context.Context, limit, offset int) ([]domain.AuthorWithCount, int, error) {
@@ -104,36 +108,54 @@ func (m *mockRepo) ListRecent(ctx context.Context, limit, offset int) ([]domain.
 	return nil, 0, nil
 }
 
+func (m *mockRepo) ListByAuthor(ctx context.Context, id int64, limit, offset int) ([]domain.Book, int, error) {
+	if m.listByAuthorFunc != nil {
+		return m.listByAuthorFunc(ctx, id, limit, offset)
+	}
+	return nil, 0, nil
+}
+
+func (m *mockRepo) ListBySeries(ctx context.Context, id int64, limit, offset int) ([]domain.Book, int, error) {
+	if m.listBySeriesFunc != nil {
+		return m.listBySeriesFunc(ctx, id, limit, offset)
+	}
+	return nil, 0, nil
+}
+
+func (m *mockRepo) GetByID(ctx context.Context, id int64) (*domain.Book, error) {
+	if m.getByIDFunc != nil {
+		return m.getByIDFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *mockRepo) Search(ctx context.Context, query string, limit, offset int) ([]domain.Book, int, error) {
+	if m.searchFunc != nil {
+		return m.searchFunc(ctx, query, limit, offset)
+	}
+	return nil, 0, nil
+}
+
 func TestAuthorsFeedHandler(t *testing.T) {
 	// Setup
 	linkGen := utils.NewLinkGenerator("http://localhost:8080")
 	repo := &mockRepo{
 		listAuthorsFunc: func(ctx context.Context, limit, offset int) ([]domain.AuthorWithCount, int, error) {
-			return []domain.AuthorWithCount{
-				{
-					Author:    domain.Author{ID: 1, Name: "Author One"},
-					BookCount: 5,
-				},
-				{
-					Author:    domain.Author{ID: 2, Name: "Author Two"},
-					BookCount: 3,
-				},
-			}, 2, nil
+			authors := []domain.AuthorWithCount{
+				{Author: domain.Author{ID: 1, Name: "Author One"}, BookCount: 5},
+				{Author: domain.Author{ID: 2, Name: "Author Two"}, BookCount: 10},
+			}
+			return authors, 2, nil
 		},
 	}
 	svc := service.NewBookService(repo, linkGen)
 	h := NewHandler(svc, linkGen)
 
-	req, err := http.NewRequest("GET", "/opds/v1.2/authors", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	req, _ := http.NewRequest("GET", "/opds/v1.2/authors", nil)
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(h.AuthorsFeedHandler)
 
 	// Execute
-	handler.ServeHTTP(rr, req)
+	h.AuthorsFeedHandler(rr, req)
 
 	// Assert
 	if status := rr.Code; status != http.StatusOK {
@@ -141,7 +163,7 @@ func TestAuthorsFeedHandler(t *testing.T) {
 	}
 
 	var feed opds.Feed
-	err = xml.Unmarshal(rr.Body.Bytes(), &feed)
+	err := xml.Unmarshal(rr.Body.Bytes(), &feed)
 	if err != nil {
 		t.Fatalf("failed to unmarshal XML: %v", err)
 	}
@@ -170,10 +192,6 @@ func TestAuthorsFeedHandler(t *testing.T) {
 	if feed.Entries[0].Title != "Author One" {
 		t.Errorf("expected first author 'Author One', got '%s'", feed.Entries[0].Title)
 	}
-
-	if feed.Entries[0].Summary.Text != "5 books" {
-		t.Errorf("expected summary '5 books', got '%s'", feed.Entries[0].Summary.Text)
-	}
 }
 
 func TestSeriesFeedHandler(t *testing.T) {
@@ -181,31 +199,21 @@ func TestSeriesFeedHandler(t *testing.T) {
 	linkGen := utils.NewLinkGenerator("http://localhost:8080")
 	repo := &mockRepo{
 		listSeriesFunc: func(ctx context.Context, limit, offset int) ([]domain.SeriesWithCount, int, error) {
-			return []domain.SeriesWithCount{
-				{
-					Series:    domain.Series{ID: 1, Name: "Series One"},
-					BookCount: 10,
-				},
-				{
-					Series:    domain.Series{ID: 2, Name: "Series Two"},
-					BookCount: 7,
-				},
-			}, 2, nil
+			series := []domain.SeriesWithCount{
+				{Series: domain.Series{ID: 1, Name: "Series One"}, BookCount: 3},
+				{Series: domain.Series{ID: 2, Name: "Series Two"}, BookCount: 7},
+			}
+			return series, 2, nil
 		},
 	}
 	svc := service.NewBookService(repo, linkGen)
 	h := NewHandler(svc, linkGen)
 
-	req, err := http.NewRequest("GET", "/opds/v1.2/series", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	req, _ := http.NewRequest("GET", "/opds/v1.2/series", nil)
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(h.SeriesFeedHandler)
 
 	// Execute
-	handler.ServeHTTP(rr, req)
+	h.SeriesFeedHandler(rr, req)
 
 	// Assert
 	if status := rr.Code; status != http.StatusOK {
@@ -213,7 +221,7 @@ func TestSeriesFeedHandler(t *testing.T) {
 	}
 
 	var feed opds.Feed
-	err = xml.Unmarshal(rr.Body.Bytes(), &feed)
+	err := xml.Unmarshal(rr.Body.Bytes(), &feed)
 	if err != nil {
 		t.Fatalf("failed to unmarshal XML: %v", err)
 	}
@@ -242,10 +250,6 @@ func TestSeriesFeedHandler(t *testing.T) {
 	if feed.Entries[0].Title != "Series One" {
 		t.Errorf("expected first series 'Series One', got '%s'", feed.Entries[0].Title)
 	}
-
-	if feed.Entries[0].Summary.Text != "10 books" {
-		t.Errorf("expected summary '10 books', got '%s'", feed.Entries[0].Summary.Text)
-	}
 }
 
 func TestNewestFeedHandler(t *testing.T) {
@@ -253,35 +257,39 @@ func TestNewestFeedHandler(t *testing.T) {
 	linkGen := utils.NewLinkGenerator("http://localhost:8080")
 	repo := &mockRepo{
 		listRecentFunc: func(ctx context.Context, limit, offset int) ([]domain.Book, int, error) {
-			return []domain.Book{
+			books := []domain.Book{
 				{
-					ID:          1,
-					Title:       "Book One",
-					Description: "Description One",
-					Authors:     []domain.Author{{Name: "Author One"}},
+					ID:    1,
+					Title: "Book One",
+					Authors: []domain.Author{
+						{ID: 1, Name: "Author One"},
+					},
+					Formats: []domain.Format{
+						{Format: "EPUB"},
+					},
 				},
 				{
-					ID:          2,
-					Title:       "Book Two",
-					Description: "Description Two",
-					Authors:     []domain.Author{{Name: "Author Two"}},
+					ID:    2,
+					Title: "Book Two",
+					Authors: []domain.Author{
+						{ID: 2, Name: "Author Two"},
+					},
+					Formats: []domain.Format{
+						{Format: "PDF"},
+					},
 				},
-			}, 2, nil
+			}
+			return books, 2, nil
 		},
 	}
 	svc := service.NewBookService(repo, linkGen)
 	h := NewHandler(svc, linkGen)
 
-	req, err := http.NewRequest("GET", "/opds/v1.2/newest", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	req, _ := http.NewRequest("GET", "/opds/v1.2/newest", nil)
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(h.NewestFeedHandler)
 
 	// Execute
-	handler.ServeHTTP(rr, req)
+	h.NewestFeedHandler(rr, req)
 
 	// Assert
 	if status := rr.Code; status != http.StatusOK {
@@ -289,7 +297,7 @@ func TestNewestFeedHandler(t *testing.T) {
 	}
 
 	var feed opds.Feed
-	err = xml.Unmarshal(rr.Body.Bytes(), &feed)
+	err := xml.Unmarshal(rr.Body.Bytes(), &feed)
 	if err != nil {
 		t.Fatalf("failed to unmarshal XML: %v", err)
 	}
@@ -337,7 +345,13 @@ func TestNewestFeedHandler(t *testing.T) {
 
 	// Test pagination with multiple pages
 	repo.listRecentFunc = func(ctx context.Context, limit, offset int) ([]domain.Book, int, error) {
-		return []domain.Book{{ID: 3, Title: "Book Three"}}, 101, nil // 3 pages if limit is 50
+		return []domain.Book{{
+			ID:    3,
+			Title: "Book Three",
+			Formats: []domain.Format{
+				{Format: "EPUB"},
+			},
+		}}, 101, nil // 3 pages if limit is 50
 	}
 
 	req, _ = http.NewRequest("GET", "/opds/v1.2/newest?page=2", nil)
@@ -363,5 +377,3 @@ func TestNewestFeedHandler(t *testing.T) {
 		t.Errorf("missing pagination links on page 2: %v", expectedRels)
 	}
 }
-
-

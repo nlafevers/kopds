@@ -79,3 +79,13 @@ func (lg *LinkGenerator) Search(page int) string {
 func (lg *LinkGenerator) OpenSearchDescriptor() string {
 	return lg.buildURL("/opds/v1.2/opensearch.xml", 0)
 }
+
+// Download returns the URL for a specific book's download in a given format.
+func (lg *LinkGenerator) Download(bookID string, format string) string {
+	return lg.buildURL(fmt.Sprintf("/opds/v1.2/download/%s/%s", bookID, strings.ToLower(format)), 0)
+}
+
+// Cover returns the URL for a specific book's cover image.
+func (lg *LinkGenerator) Cover(bookID string) string {
+	return lg.buildURL(fmt.Sprintf("/opds/v1.2/cover/%s", bookID), 0)
+}
