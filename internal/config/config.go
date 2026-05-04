@@ -11,13 +11,15 @@ import (
 
 // Config holds the application configuration.
 type Config struct {
-	LibraryPath  string        `mapstructure:"library_path"`
-	DatabasePath string        `mapstructure:"database_path"`
-	BaseURL      string        `mapstructure:"base_url"`
-	Port         int           `mapstructure:"port"`
-	LogLevel     string        `mapstructure:"log_level"`
-	JSONLog      bool          `mapstructure:"json_log"`
-	SyncInterval time.Duration `mapstructure:"sync_interval"`
+	LibraryPath         string        `mapstructure:"library_path"`
+	DatabasePath        string        `mapstructure:"database_path"`
+	BaseURL             string        `mapstructure:"base_url"`
+	Port                int           `mapstructure:"port"`
+	LogLevel            string        `mapstructure:"log_level"`
+	JSONLog             bool          `mapstructure:"json_log"`
+	SyncInterval        time.Duration `mapstructure:"sync_interval"`
+	ImageCachePath      string        `mapstructure:"image_cache_path"`
+	ImageCacheMaxCount  int           `mapstructure:"image_cache_max_count"`
 }
 
 // Load loads the configuration from file and environment variables.
@@ -33,6 +35,8 @@ func Load() (*Config, error) {
 	viper.SetDefault("log_level", "info")
 	viper.SetDefault("json_log", false)
 	viper.SetDefault("sync_interval", "30m")
+	viper.SetDefault("image_cache_path", "cache/images")
+	viper.SetDefault("image_cache_max_count", 1000)
 
 	viper.SetEnvPrefix("KOPDS")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -66,6 +70,10 @@ func (c *Config) Validate() error {
 	}
 	if !info.IsDir() {
 		return errors.New("library_path must be a directory")
+	}
+
+	if c.ImageCacheMaxCount <= 0 {
+		return errors.New("image_cache_max_count must be greater than 0")
 	}
 
 	return nil
