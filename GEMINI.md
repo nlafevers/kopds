@@ -72,11 +72,11 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - *Task:* Serve `osd.xml` that defines the search query template for KOReader.
     - *Action:* Commit changes to git and update GEMINI.md roadmap status.
 
-  - **Step 3.9 (Agent K):** Implement `SearchFeedHandler` in `internal/api/handlers.go`.
+  - [x] **Step 3.9 (Agent K):** Implement `SearchFeedHandler` in `internal/api/handlers.go`.
     - *Task:* Connect to repository search method and render results as Atom entries.
     - *Action:* Commit changes to git and update GEMINI.md roadmap status.
 
-  - **Step 3.10 (QA):** Verify XML output against standard OPDS 1.2 validators.
+  - [x] **Step 3.10 (QA):** Verify XML output against standard OPDS 1.2 validators.
     - *Task:* Run integration tests for generated feeds.
     - *Action:* Commit changes to git and update GEMINI.md roadmap status.
 
