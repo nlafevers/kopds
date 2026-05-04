@@ -378,6 +378,58 @@ func TestNewestFeedHandler(t *testing.T) {
 	}
 }
 
+func TestSearchFeedHandler(t *testing.T) {
+	// Setup
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	repo := &mockRepo{
+		searchFunc: func(ctx context.Context, query string, limit, offset int) ([]domain.Book, int, error) {
+			if query == "Go" {
+				books := []domain.Book{
+					{
+						ID:    1,
+						Title: "The Go Programming Language",
+						Formats: []domain.Format{
+							{Format: "EPUB"},
+						},
+					},
+				}
+				return books, 1, nil
+			}
+			return nil, 0, nil
+		},
+	}
+	svc := service.NewBookService(repo, linkGen)
+	h := NewHandler(svc, linkGen)
+
+	// Execute search
+	req, _ := http.NewRequest("GET", "/opds/v1.2/search?q=Go", nil)
+	rr := httptest.NewRecorder()
+	h.SearchFeedHandler(rr, req)
+
+	// Assert
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var feed opds.Feed
+	err := xml.Unmarshal(rr.Body.Bytes(), &feed)
+	if err != nil {
+		t.Fatalf("failed to unmarshal XML: %v", err)
+	}
+
+	if feed.Title != "Search Results: Go" {
+		t.Errorf("expected title 'Search Results: Go', got '%s'", feed.Title)
+	}
+
+	if len(feed.Entries) != 1 {
+		t.Errorf("expected 1 entry, got %d", len(feed.Entries))
+	}
+
+	if feed.Entries[0].Title != "The Go Programming Language" {
+		t.Errorf("expected book 'The Go Programming Language', got '%s'", feed.Entries[0].Title)
+	}
+}
+
 func TestOpenSearchDescriptorHandler(t *testing.T) {
 	// Setup
 	linkGen := utils.NewLinkGenerator("http://localhost:8080")

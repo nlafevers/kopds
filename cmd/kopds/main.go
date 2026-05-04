@@ -85,9 +85,9 @@ func main() {
 		r.Get("/series/{id}", h.SeriesBooksHandler)
 		r.Get("/newest", h.NewestFeedHandler)
 		r.Get("/books/{id}", h.BookDetailHandler)
+		r.Get("/search", h.SearchFeedHandler)
 		r.Get("/opensearch.xml", h.OpenSearchDescriptorHandler)
-		})
-	// 8. Start Server
+		})	// 8. Start Server
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: r,

@@ -60,11 +60,11 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - *Task:* Retrieve series via repository (ensure repo method returns book counts) and convert into an Atom feed.
     - *Action:* Commit changes to git and update GEMINI.md roadmap status.
 
-  - **Step 3.6 (Agent J):** Implement Pagination support in `ListRecent` repository methods and feed handlers.
+  - [x] **Step 3.6 (Agent J):** Implement Pagination support in `ListRecent` repository methods and feed handlers.
     - *Task:* Add `?page=N` logic to navigation links (first, next, prev).
     - *Action:* Commit changes to git and update GEMINI.md roadmap status.
 
-  - **Step 3.7 (Agent K):** Implement `BookDetailHandler` in `internal/api/handlers.go`.
+  - [x] **Step 3.7 (Agent K):** Implement `BookDetailHandler` in `internal/api/handlers.go`.
     - *Task:* Build an acquisition feed entry for a specific book, including download links for formats.
     - *Action:* Commit changes to git and update GEMINI.md roadmap status.
 
