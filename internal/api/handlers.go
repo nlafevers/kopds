@@ -4,11 +4,14 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nlafevers/kopds/internal/domain"
+	"github.com/nlafevers/kopds/internal/image"
 	"github.com/nlafevers/kopds/internal/opds"
 	"github.com/nlafevers/kopds/internal/service"
 	"github.com/nlafevers/kopds/pkg/utils"
@@ -18,13 +21,17 @@ import (
 type Handler struct {
 	BookService   *service.BookService
 	LinkGenerator *utils.LinkGenerator
+	ImageCache    *image.DiskCache
+	LibraryPath   string
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(bookService *service.BookService, linkGenerator *utils.LinkGenerator) *Handler {
+func NewHandler(bookService *service.BookService, linkGenerator *utils.LinkGenerator, imageCache *image.DiskCache, libraryPath string) *Handler {
 	return &Handler{
 		BookService:   bookService,
 		LinkGenerator: linkGenerator,
+		ImageCache:    imageCache,
+		LibraryPath:   libraryPath,
 	}
 }
 
@@ -259,6 +266,75 @@ feed := opds.NewFeed("Search Results: "+query, "search-results", links)
 
 h.appendBookEntries(&feed, books)
 h.sendFeed(w, feed)
+}
+
+// CoverHandler serves the cover image for a book, resizing it if necessary and caching the result.
+func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	wParam := r.URL.Query().Get("w")
+	hParam := r.URL.Query().Get("h")
+
+	width := 300
+	height := 450
+
+	if wParam != "" {
+		if val, err := strconv.Atoi(wParam); err == nil && val > 0 {
+			width = val
+		}
+	}
+	if hParam != "" {
+		if val, err := strconv.Atoi(hParam); err == nil && val > 0 {
+			height = val
+		}
+	}
+
+	cacheKey := fmt.Sprintf("%s_%dx%d.jpg", idStr, width, height)
+	data, err := h.ImageCache.Get(cacheKey)
+	if err == nil {
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Cache-Control", "public, max-age=604800") // 1 week
+		w.Write(data)
+		return
+	}
+
+	// Not in cache, resize
+	book, err := h.BookService.GetBookByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if book == nil || !book.HasCover {
+		http.NotFound(w, r)
+		return
+	}
+
+	coverPath := filepath.Join(h.LibraryPath, book.Path, "cover.jpg")
+	file, err := os.Open(coverPath)
+	if err != nil {
+		http.Error(w, "Failed to open cover", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	resizedData, err := image.Resize(file, width, height)
+	if err != nil {
+		http.Error(w, "Failed to resize image", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.ImageCache.Put(cacheKey, resizedData); err != nil {
+		// We could log this, but we'll still serve the image
+	}
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "public, max-age=604800") // 1 week
+	w.Write(resizedData)
 }
 
 // Helpers
