@@ -115,7 +115,7 @@ func TestDeliveryIntegration(t *testing.T) {
 		if ct := res.Header.Get("Content-Type"); ct != "application/epub+zip" {
 			t.Errorf("expected application/epub+zip, got %s", ct)
 		}
-		
+
 		body, _ := io.ReadAll(res.Body)
 		if string(body) != "fake epub content" {
 			t.Errorf("expected 'fake epub content', got '%s'", string(body))
@@ -137,6 +137,122 @@ func TestDeliveryIntegration(t *testing.T) {
 			t.Errorf("expected NotFound, got %d", res.StatusCode)
 		}
 	})
+}
+
+func TestBookFileHandlerRejectsEscapingPaths(t *testing.T) {
+	tempDir := t.TempDir()
+	libraryPath := filepath.Join(tempDir, "library")
+	if err := os.MkdirAll(libraryPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "Secret.epub"), []byte("secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	repo := &mockRepoDelivery{
+		getByIDFunc: func(ctx context.Context, id int64) (*domain.Book, error) {
+			return &domain.Book{
+				ID:    1,
+				Title: "Escaping Book",
+				Path:  "..",
+				Formats: []domain.Format{
+					{Format: "EPUB", Name: "Secret"},
+				},
+			}, nil
+		},
+	}
+
+	svc := service.NewBookService(repo, linkGen)
+	h := NewHandler(svc, nil, linkGen, nil, libraryPath)
+
+	r := chi.NewRouter()
+	r.Get("/opds/v1.2/download/{id}/{format}", h.BookFileHandler)
+
+	req := httptest.NewRequest("GET", "/opds/v1.2/download/1/epub", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected escaping path to return 404, got %d", rr.Code)
+	}
+	if body := rr.Body.String(); body == "secret" {
+		t.Fatal("handler served content outside the library root")
+	}
+}
+
+func TestBookFileHandlerRejectsFormatPathSeparators(t *testing.T) {
+	tempDir := t.TempDir()
+	libraryPath := filepath.Join(tempDir, "library")
+	bookPath := "Book"
+	if err := os.MkdirAll(filepath.Join(libraryPath, bookPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	repo := &mockRepoDelivery{
+		getByIDFunc: func(ctx context.Context, id int64) (*domain.Book, error) {
+			return &domain.Book{
+				ID:    1,
+				Title: "Bad Format Name",
+				Path:  bookPath,
+				Formats: []domain.Format{
+					{Format: "EPUB", Name: "../Secret"},
+				},
+			}, nil
+		},
+	}
+
+	svc := service.NewBookService(repo, linkGen)
+	h := NewHandler(svc, nil, linkGen, nil, libraryPath)
+
+	r := chi.NewRouter()
+	r.Get("/opds/v1.2/download/{id}/{format}", h.BookFileHandler)
+
+	req := httptest.NewRequest("GET", "/opds/v1.2/download/1/epub", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected invalid format name to return 404, got %d", rr.Code)
+	}
+}
+
+func TestCoverHandlerRejectsEscapingPath(t *testing.T) {
+	tempDir := t.TempDir()
+	libraryPath := filepath.Join(tempDir, "library")
+	cachePath := filepath.Join(tempDir, "cache")
+	if err := os.MkdirAll(libraryPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(cachePath, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	repo := &mockRepoDelivery{
+		getByIDFunc: func(ctx context.Context, id int64) (*domain.Book, error) {
+			return &domain.Book{ID: 1, Title: "Escaping Cover", Path: "..", HasCover: true}, nil
+		},
+	}
+	cache, err := img.NewDiskCache(cachePath, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	svc := service.NewBookService(repo, linkGen)
+	h := NewHandler(svc, nil, linkGen, cache, libraryPath)
+
+	r := chi.NewRouter()
+	r.Get("/opds/v1.2/cover/{id}", h.CoverHandler)
+
+	req := httptest.NewRequest("GET", "/opds/v1.2/cover/1", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected escaping cover path to return 404, got %d", rr.Code)
+	}
 }
 
 func createDummyImage(t *testing.T, path string) {

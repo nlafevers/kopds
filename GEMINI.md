@@ -173,6 +173,12 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - Upgrade `golang.org/x/image` to a fixed release.
     - Commit changes to git with an appropriate message.
 
+  - [x] **Step 7.2:**
+    - Add library-root containment checks for cover and book-file delivery.
+    - Reject unsafe Calibre path metadata and unsafe format file names before opening files.
+    - Add regression tests for file delivery path traversal attempts.
+    - Commit changes to git with an appropriate message.
+
 ## Development Conventions
 
 - **Code Style:** Follow standard Go idioms and `gofmt`.
