@@ -11,7 +11,7 @@ import (
 func NewSQLite(path string) (*sql.DB, error) {
 	// DSN with performance pragmas
 	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=cache_size(-2000)", path)
-	
+
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)

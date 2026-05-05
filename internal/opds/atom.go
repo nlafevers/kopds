@@ -20,8 +20,8 @@ type Feed struct {
 	Updated time.Time `xml:"updated"`
 	Icon    string    `xml:"icon,omitempty"`
 
-	Author *Author `xml:"author,omitempty"`
-	Links  []Link  `xml:"link"`
+	Author  *Author  `xml:"author,omitempty"`
+	Links   []Link   `xml:"link"`
 	Entries []*Entry `xml:"entry"`
 }
 
@@ -68,9 +68,9 @@ type IndirectAcquisition struct {
 
 // Category represents an Atom category element.
 type Category struct {
-	Term  string `xml:"term,attr"`
+	Term   string `xml:"term,attr"`
 	Scheme string `xml:"scheme,attr,omitempty"`
-	Label string `xml:"label,attr,omitempty"`
+	Label  string `xml:"label,attr,omitempty"`
 }
 
 // Content represents an Atom content or summary element.

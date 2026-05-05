@@ -55,10 +55,10 @@ func (c *DiskCache) loadExistingFiles() error {
 	}
 
 	type fileInfo struct {
-		name string
+		name    string
 		modTime os.FileInfo
 	}
-	
+
 	var files []os.DirEntry
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -68,7 +68,7 @@ func (c *DiskCache) loadExistingFiles() error {
 
 	// Sort by modification time to populate LRU correctly (oldest first)
 	type entryWithTime struct {
-		name string
+		name  string
 		mtime int64
 	}
 	var sortedEntries []entryWithTime
@@ -79,7 +79,7 @@ func (c *DiskCache) loadExistingFiles() error {
 		}
 		sortedEntries = append(sortedEntries, entryWithTime{entry.Name(), info.ModTime().Unix()})
 	}
-	
+
 	sort.Slice(sortedEntries, func(i, j int) bool {
 		return sortedEntries[i].mtime < sortedEntries[j].mtime
 	})
@@ -115,7 +115,7 @@ func (c *DiskCache) Get(key string) ([]byte, error) {
 // Put adds an image to the cache.
 func (c *DiskCache) Put(key string, data []byte) error {
 	filePath := filepath.Join(c.path, key)
-	
+
 	// Write to a temporary file first to ensure atomicity
 	tmpPath := filePath + ".tmp"
 	if err := os.WriteFile(tmpPath, data, 0644); err != nil {

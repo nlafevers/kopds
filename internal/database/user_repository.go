@@ -41,3 +41,11 @@ func (r *sqliteUserRepository) Save(ctx context.Context, user *domain.User) erro
 	}
 	return nil
 }
+
+func (r *sqliteUserRepository) DeleteUser(ctx context.Context, username string) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM users WHERE username = ?", username)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	return nil
+}

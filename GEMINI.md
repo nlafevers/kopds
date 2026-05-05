@@ -83,7 +83,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 
 
 
-- [ ] **Phase 4: Image & File Delivery**
+- [x] **Phase 4: Image & File Delivery**
 
   - [x] **Step 4.1:**
     - Create `internal/image/resizer.go` and implement `Resize(src io.Reader, width, height int) ([]byte, error)`.
@@ -165,7 +165,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - Add deployment documentation.
     - Write clear instructions emphasizing that KOPDS should be deployed behind a reverse proxy (e.g., Caddy, Traefik, Nginx) with HTTPS enabled, as Basic Auth transmits credentials in plain text.
 
-- [ ] **Phase 7: Security Hardening & Reliability Review**
+- [x] **Phase 7: Security Hardening & Reliability Review**
 
   - [x] **Step 7.1:**
     - Remove the vulnerable generic TIFF decode path from cover resizing.
@@ -189,6 +189,11 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - Replace positional `create-user` passwords with interactive prompt or `--password-stdin`.
     - Update Docker runtime to a supported Alpine base and non-root execution.
     - Update Docker Compose and README deployment examples for hardened paths and admin creation.
+    - Commit changes to git with an appropriate message.
+
+  - [x] **Step 7.5:**
+    - Implement the missing `DeleteUser` repository method listed in Phase 5.
+    - Run full formatting, test, vet, and vulnerability verification.
     - Commit changes to git with an appropriate message.
 
 ## Development Conventions

@@ -21,6 +21,7 @@ type BookRepository interface {
 type UserRepository interface {
 	GetByUsername(ctx context.Context, username string) (*User, error)
 	Save(ctx context.Context, user *User) error
+	DeleteUser(ctx context.Context, username string) error
 }
 
 // Indexer defines the interface for the background synchronization engine.
