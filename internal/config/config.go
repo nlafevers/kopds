@@ -29,6 +29,7 @@ func Load() (*Config, error) {
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./config")
 
+	viper.SetDefault("library_path", "")
 	viper.SetDefault("port", 8080)
 	viper.SetDefault("database_path", "kopds.db")
 	viper.SetDefault("base_url", "http://localhost:8080")
