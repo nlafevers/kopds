@@ -31,22 +31,22 @@ func TestStartWorker(t *testing.T) {
 	mock := &mockIndexer{}
 	logger := zerolog.New(nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	interval := 100 * time.Millisecond
-	
+
 	go StartWorker(ctx, mock, interval, logger)
-	
+
 	// Wait a bit to allow initial sync and at least one periodic sync
 	time.Sleep(250 * time.Millisecond)
-	
+
 	count := mock.getSyncCount()
 	if count < 2 {
 		t.Errorf("expected at least 2 syncs (initial + 1 periodic), got %d", count)
 	}
-	
+
 	cancel()
 	time.Sleep(50 * time.Millisecond)
-	
+
 	countAfterCancel := mock.getSyncCount()
 	time.Sleep(200 * time.Millisecond)
 	if mock.getSyncCount() > countAfterCancel {

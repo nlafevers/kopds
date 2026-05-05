@@ -81,4 +81,16 @@ func TestUserRepository(t *testing.T) {
 	if got.Password != "new-hashed-password" {
 		t.Errorf("expected updated password, got %s", got.Password)
 	}
+
+	if err := repo.DeleteUser(ctx, "admin"); err != nil {
+		t.Fatalf("failed to delete user: %v", err)
+	}
+
+	got, err = repo.GetByUsername(ctx, "admin")
+	if err != nil {
+		t.Fatalf("GetByUsername after delete failed: %v", err)
+	}
+	if got != nil {
+		t.Fatal("expected nil for deleted user")
+	}
 }

@@ -11,15 +11,15 @@ import (
 
 // Config holds the application configuration.
 type Config struct {
-	LibraryPath         string        `mapstructure:"library_path"`
-	DatabasePath        string        `mapstructure:"database_path"`
-	BaseURL             string        `mapstructure:"base_url"`
-	Port                int           `mapstructure:"port"`
-	LogLevel            string        `mapstructure:"log_level"`
-	JSONLog             bool          `mapstructure:"json_log"`
-	SyncInterval        time.Duration `mapstructure:"sync_interval"`
-	ImageCachePath      string        `mapstructure:"image_cache_path"`
-	ImageCacheMaxCount  int           `mapstructure:"image_cache_max_count"`
+	LibraryPath        string        `mapstructure:"library_path"`
+	DatabasePath       string        `mapstructure:"database_path"`
+	BaseURL            string        `mapstructure:"base_url"`
+	Port               int           `mapstructure:"port"`
+	LogLevel           string        `mapstructure:"log_level"`
+	JSONLog            bool          `mapstructure:"json_log"`
+	SyncInterval       time.Duration `mapstructure:"sync_interval"`
+	ImageCachePath     string        `mapstructure:"image_cache_path"`
+	ImageCacheMaxCount int           `mapstructure:"image_cache_max_count"`
 }
 
 // Load loads the configuration from file and environment variables.
