@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -262,7 +263,7 @@ func (h *Handler) SearchFeedHandler(w http.ResponseWriter, r *http.Request) {
 
 	lastPage := calculateLastPage(total)
 	linkFunc := func(p int) string {
-		return fmt.Sprintf("%s?q=%s", h.LinkGenerator.Search(p), query)
+		return addQueryParam(h.LinkGenerator.Search(p), "q", query)
 	}
 	links := h.generatePaginationLinks(linkFunc, page, lastPage, "Search Results")
 	feed := opds.NewFeed("Search Results: "+query, "search-results", links)
@@ -608,6 +609,17 @@ func getMimeType(format string) string {
 	default:
 		return "application/octet-stream"
 	}
+}
+
+func addQueryParam(rawURL, key, value string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	q := u.Query()
+	q.Set(key, value)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func formatFileName(format *domain.Format) (string, error) {

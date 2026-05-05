@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -419,6 +420,9 @@ func TestSearchFeedHandler(t *testing.T) {
 				}
 				return books, 1, nil
 			}
+			if query == "Go & Rust" {
+				return []domain.Book{{ID: 2, Title: "Encoded Search", Formats: []domain.Format{{Format: "EPUB"}}}}, 101, nil
+			}
 			return nil, 0, nil
 		},
 	}
@@ -451,6 +455,20 @@ func TestSearchFeedHandler(t *testing.T) {
 
 	if feed.Entries[0].Title != "The Go Programming Language" {
 		t.Errorf("expected book 'The Go Programming Language', got '%s'", feed.Entries[0].Title)
+	}
+
+	req, _ = http.NewRequest("GET", "/opds/v1.2/search?q=Go+%26+Rust&page=2", nil)
+	rr = httptest.NewRecorder()
+	h.SearchFeedHandler(rr, req)
+
+	err = xml.Unmarshal(rr.Body.Bytes(), &feed)
+	if err != nil {
+		t.Fatalf("failed to unmarshal encoded search XML: %v", err)
+	}
+	for _, link := range feed.Links {
+		if link.Rel == "next" && !strings.Contains(link.Href, "q=Go+%26+Rust") {
+			t.Fatalf("expected encoded q parameter in next link, got %s", link.Href)
+		}
 	}
 }
 
