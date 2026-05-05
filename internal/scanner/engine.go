@@ -52,6 +52,11 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 	}
 	defer reader.Close()
 
+	allCalibreIDs, err := reader.GetAllBookIDs(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read calibre book ids: %w", err)
+	}
+
 	lastModifiedStr, _ := e.Repo.GetSyncState(ctx, "last_modified_timestamp")
 	var threshold time.Time
 	if lastModifiedStr != "" {
@@ -70,6 +75,13 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 
 	if len(books) == 0 {
 		e.Logger.Info().Msg("No new or modified books found in Calibre")
+		pruned, err := e.Repo.PruneMissingCalibreIDs(ctx, allCalibreIDs)
+		if err != nil {
+			return fmt.Errorf("failed to prune missing books: %w", err)
+		}
+		if pruned > 0 {
+			e.Logger.Info().Int64("count", pruned).Msg("Pruned books removed from Calibre")
+		}
 		return e.updateSyncState(ctx, currentMtime, currentSize, threshold)
 	}
 
@@ -80,9 +92,11 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 
 	latestModified := threshold
 	successCount := 0
+	var syncErr error
 	for _, book := range books {
 		if err := e.Repo.Upsert(ctx, &book); err != nil {
 			e.Logger.Error().Err(err).Int64("calibre_id", book.CalibreID).Msg("Failed to upsert book")
+			syncErr = fmt.Errorf("failed to upsert one or more books")
 			continue
 		}
 		successCount++
@@ -92,6 +106,17 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 	}
 
 	e.Logger.Info().Int("total", len(books)).Int("success", successCount).Msg("Synchronization batch completed")
+	if syncErr != nil {
+		return syncErr
+	}
+
+	pruned, err := e.Repo.PruneMissingCalibreIDs(ctx, allCalibreIDs)
+	if err != nil {
+		return fmt.Errorf("failed to prune missing books: %w", err)
+	}
+	if pruned > 0 {
+		e.Logger.Info().Int64("count", pruned).Msg("Pruned books removed from Calibre")
+	}
 
 	return e.updateSyncState(ctx, currentMtime, currentSize, latestModified)
 }

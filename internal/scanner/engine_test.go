@@ -37,13 +37,13 @@ func TestSyncEngine_Sync(t *testing.T) {
 	// 1. Setup Calibre Mock DB
 	tmpCalibreDir := t.TempDir()
 	calibreDBPath := filepath.Join(tmpCalibreDir, "metadata.db")
-	
+
 	// Create the mock calibre DB
 	cDB, err := sql.Open("sqlite", calibreDBPath)
 	if err != nil {
 		t.Fatalf("failed to open mock calibre db: %v", err)
 	}
-	
+
 	schema := `
 	CREATE TABLE books (
 		id INTEGER PRIMARY KEY,
@@ -116,7 +116,7 @@ func TestSyncEngine_Sync(t *testing.T) {
 	if mtime == "" {
 		t.Fatal("calibre_mtime sync state not set")
 	}
-	
+
 	lastModifiedStr, _ := repo.GetSyncState(ctx, "last_modified_timestamp")
 	if lastModifiedStr == "" {
 		t.Fatal("last_modified_timestamp sync state not set")
@@ -135,7 +135,7 @@ func TestSyncEngine_Sync(t *testing.T) {
 		t.Fatalf("failed to update mock book: %v", err)
 	}
 	cDB.Close()
-	
+
 	// Force mtime change to ensure it's different from the previous one
 	future := time.Now().Add(10 * time.Second)
 	if err := os.Chtimes(calibreDBPath, future, future); err != nil {
@@ -149,5 +149,30 @@ func TestSyncEngine_Sync(t *testing.T) {
 	recent, _, _ = repo.ListRecent(ctx, 10, 0)
 	if recent[0].Title != "Updated Title" {
 		t.Errorf("Expected updated title 'Updated Title', got '%s'", recent[0].Title)
+	}
+
+	// 6. Delete Calibre book and verify local index pruning
+	cDB, _ = sql.Open("sqlite", calibreDBPath)
+	_, err = cDB.Exec(`DELETE FROM books WHERE id = 1`)
+	if err != nil {
+		t.Fatalf("failed to delete mock book: %v", err)
+	}
+	cDB.Close()
+
+	future = time.Now().Add(20 * time.Second)
+	if err := os.Chtimes(calibreDBPath, future, future); err != nil {
+		t.Fatalf("failed to change mtime after delete: %v", err)
+	}
+
+	if err := engine.Sync(ctx); err != nil {
+		t.Fatalf("delete sync failed: %v", err)
+	}
+
+	recent, _, err = repo.ListRecent(ctx, 10, 0)
+	if err != nil {
+		t.Fatalf("Failed to list recent books after delete: %v", err)
+	}
+	if len(recent) != 0 {
+		t.Fatalf("Expected deleted book to be pruned, got %d books", len(recent))
 	}
 }

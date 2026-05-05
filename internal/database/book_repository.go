@@ -3,8 +3,10 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/nlafevers/kopds/internal/domain"
 )
@@ -12,6 +14,8 @@ import (
 type sqliteBookRepository struct {
 	db *sql.DB
 }
+
+var ErrSearchQueryTooLong = errors.New("search query is too long")
 
 // NewBookRepository creates a new SQLite book repository.
 func NewBookRepository(db *sql.DB) domain.BookRepository {
@@ -95,6 +99,9 @@ func (r *sqliteBookRepository) getAuthors(ctx context.Context, bookID int64) ([]
 		}
 		authors = append(authors, a)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return authors, nil
 }
 
@@ -118,6 +125,9 @@ func (r *sqliteBookRepository) getTags(ctx context.Context, bookID int64) ([]dom
 		}
 		tags = append(tags, t)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return tags, nil
 }
 
@@ -137,13 +147,24 @@ func (r *sqliteBookRepository) getFormats(ctx context.Context, bookID int64) ([]
 		}
 		formats = append(formats, f)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return formats, nil
 }
 
 func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, offset int) ([]domain.Book, int, error) {
+	ftsQuery, err := buildFTSQuery(query)
+	if err != nil {
+		return nil, 0, err
+	}
+	if ftsQuery == "" {
+		return nil, 0, nil
+	}
+
 	countQuery := `SELECT COUNT(*) FROM books_search WHERE books_search MATCH ?`
 	var total int
-	err := r.db.QueryRowContext(ctx, countQuery, query).Scan(&total)
+	err = r.db.QueryRowContext(ctx, countQuery, ftsQuery).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("search count failed: %w", err)
 	}
@@ -156,7 +177,7 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 		ORDER BY rank
 		LIMIT ? OFFSET ?`
 
-	rows, err := r.db.QueryContext(ctx, sqlQuery, query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, sqlQuery, ftsQuery, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("search failed: %w", err)
 	}
@@ -176,7 +197,37 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 			books = append(books, *book)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
 	return books, total, nil
+}
+
+func buildFTSQuery(query string) (string, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return "", nil
+	}
+	if len(query) > 200 {
+		return "", ErrSearchQueryTooLong
+	}
+
+	tokens := strings.FieldsFunc(query, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	})
+	if len(tokens) == 0 {
+		return "", nil
+	}
+
+	terms := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		token = strings.ToLower(token)
+		if token == "" {
+			continue
+		}
+		terms = append(terms, token+"*")
+	}
+	return strings.Join(terms, " "), nil
 }
 
 func (r *sqliteBookRepository) ListRecent(ctx context.Context, limit, offset int) ([]domain.Book, int, error) {
@@ -255,6 +306,9 @@ func (r *sqliteBookRepository) ListAuthors(ctx context.Context, limit, offset in
 		}
 		authors = append(authors, a)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
 	return authors, total, nil
 }
 
@@ -287,6 +341,9 @@ func (r *sqliteBookRepository) ListSeries(ctx context.Context, limit, offset int
 		}
 		series = append(series, s)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
 	return series, total, nil
 }
 
@@ -310,6 +367,9 @@ func (r *sqliteBookRepository) listBooks(ctx context.Context, query string, args
 		if book != nil {
 			books = append(books, *book)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return books, nil
 }
@@ -351,7 +411,7 @@ func (r *sqliteBookRepository) Upsert(ctx context.Context, book *domain.Book) er
 			has_cover=excluded.has_cover,
 			description=excluded.description
 		RETURNING id`
-	
+
 	err = tx.QueryRowContext(ctx, query,
 		book.UUID, book.Title, book.Sort, book.AuthorSort, book.Timestamp, book.PubDate, seriesID, book.SeriesIndex,
 		book.LastModified, book.Path, book.HasCover, book.CalibreID, book.Description,
@@ -420,6 +480,58 @@ func (r *sqliteBookRepository) Upsert(ctx context.Context, book *domain.Book) er
 	return tx.Commit()
 }
 
+func (r *sqliteBookRepository) PruneMissingCalibreIDs(ctx context.Context, keepIDs []int64) (int64, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, "CREATE TEMP TABLE IF NOT EXISTS sync_keep_calibre_ids (id INTEGER PRIMARY KEY)"); err != nil {
+		return 0, fmt.Errorf("failed to create sync keep table: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM sync_keep_calibre_ids"); err != nil {
+		return 0, fmt.Errorf("failed to clear sync keep table: %w", err)
+	}
+
+	if len(keepIDs) > 0 {
+		stmt, err := tx.PrepareContext(ctx, "INSERT OR IGNORE INTO sync_keep_calibre_ids (id) VALUES (?)")
+		if err != nil {
+			return 0, fmt.Errorf("failed to prepare sync keep insert: %w", err)
+		}
+		for _, id := range keepIDs {
+			if _, err := stmt.ExecContext(ctx, id); err != nil {
+				stmt.Close()
+				return 0, fmt.Errorf("failed to insert sync keep id: %w", err)
+			}
+		}
+		if err := stmt.Close(); err != nil {
+			return 0, fmt.Errorf("failed to close sync keep insert: %w", err)
+		}
+	}
+
+	result, err := tx.ExecContext(ctx, `
+		DELETE FROM books
+		WHERE calibre_id IS NOT NULL
+		  AND calibre_id NOT IN (SELECT id FROM sync_keep_calibre_ids)`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to prune missing books: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM books_search WHERE rowid NOT IN (SELECT id FROM books)"); err != nil {
+		return 0, fmt.Errorf("failed to prune stale search rows: %w", err)
+	}
+
+	pruned, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to read prune count: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return pruned, nil
+}
+
 // ReindexBook updates the FTS5 search table for a given book.
 func ReindexBook(tx *sql.Tx, bookID int64) error {
 	// Fetch all data for the book
@@ -443,6 +555,9 @@ func ReindexBook(tx *sql.Tx, bookID int64) error {
 		}
 		authors = append(authors, a)
 	}
+	if err := rowsA.Err(); err != nil {
+		return err
+	}
 
 	var tags []string
 	rowsT, err := tx.Query("SELECT name FROM tags t JOIN books_tags_link btl ON t.id = btl.tag_id WHERE btl.book_id = ?", bookID)
@@ -456,6 +571,9 @@ func ReindexBook(tx *sql.Tx, bookID int64) error {
 			return err
 		}
 		tags = append(tags, t)
+	}
+	if err := rowsT.Err(); err != nil {
+		return err
 	}
 
 	// Update books_search

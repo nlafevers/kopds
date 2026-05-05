@@ -92,8 +92,32 @@ func (r *CalibreReader) GetChangedBooks(ctx context.Context, since time.Time) ([
 
 		books = append(books, b)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate changed books: %w", err)
+	}
 
 	return books, nil
+}
+
+func (r *CalibreReader) GetAllBookIDs(ctx context.Context) ([]int64, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id FROM books")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query calibre book ids: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan calibre book id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate calibre book ids: %w", err)
+	}
+	return ids, nil
 }
 
 // PopulateMetadata fills in Authors, Tags, Series, and Formats for the given books.
@@ -162,6 +186,9 @@ func (r *CalibreReader) populateAuthors(ctx context.Context, bookIDs []interface
 			b.Authors = append(b.Authors, author)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed to iterate authors: %w", err)
+	}
 	return nil
 }
 
@@ -188,6 +215,9 @@ func (r *CalibreReader) populateTags(ctx context.Context, bookIDs []interface{},
 		if b, ok := bookMap[bookID]; ok {
 			b.Tags = append(b.Tags, tag)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed to iterate tags: %w", err)
 	}
 	return nil
 }
@@ -216,6 +246,9 @@ func (r *CalibreReader) populateSeries(ctx context.Context, bookIDs []interface{
 			b.Series = &series
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed to iterate series: %w", err)
+	}
 	return nil
 }
 
@@ -241,6 +274,9 @@ func (r *CalibreReader) populateFormats(ctx context.Context, bookIDs []interface
 		if b, ok := bookMap[bookID]; ok {
 			b.Formats = append(b.Formats, format)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed to iterate formats: %w", err)
 	}
 	return nil
 }

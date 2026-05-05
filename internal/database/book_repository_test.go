@@ -43,7 +43,7 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 		SeriesIndex: 1,
 		Path:        "/path/to/book",
 		HasCover:    true,
-		CalibreID:  123,
+		CalibreID:   123,
 		Description: "A great book about Go.",
 		Authors: []domain.Author{
 			{Name: "Alan A. A. Donovan", Sort: "Donovan, Alan A. A."},
@@ -119,6 +119,23 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 		t.Fatal("expected search results for author, got none")
 	}
 
+	// Test Search with punctuation that would be invalid raw FTS syntax.
+	books, _, err = repo.Search(ctx, `Go: "Programming"`, 10, 0)
+	if err != nil {
+		t.Fatalf("search with punctuation failed: %v", err)
+	}
+	if len(books) == 0 {
+		t.Fatal("expected search results for punctuation query, got none")
+	}
+
+	books, total, err = repo.Search(ctx, `":`, 10, 0)
+	if err != nil {
+		t.Fatalf("punctuation-only search should not fail: %v", err)
+	}
+	if len(books) != 0 || total != 0 {
+		t.Fatalf("expected no results for punctuation-only search, got %d total %d", len(books), total)
+	}
+
 	// Test ListRecent
 	recent, _, err := repo.ListRecent(ctx, 10, 0)
 	if err != nil {
@@ -144,5 +161,21 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 	}
 	if len(bySeries) == 0 {
 		t.Fatal("expected books by series, got none")
+	}
+
+	pruned, err := repo.PruneMissingCalibreIDs(ctx, []int64{})
+	if err != nil {
+		t.Fatalf("PruneMissingCalibreIDs failed: %v", err)
+	}
+	if pruned != 1 {
+		t.Fatalf("expected 1 pruned book, got %d", pruned)
+	}
+
+	got, err = repo.GetByID(ctx, book.ID)
+	if err != nil {
+		t.Fatalf("failed to get pruned book: %v", err)
+	}
+	if got != nil {
+		t.Fatal("expected pruned book to be deleted")
 	}
 }

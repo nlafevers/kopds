@@ -179,6 +179,12 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - Add regression tests for file delivery path traversal attempts.
     - Commit changes to git with an appropriate message.
 
+  - [x] **Step 7.3:**
+    - Sanitize FTS search input and URL-encode search pagination links.
+    - Add sync pruning for books removed from Calibre and avoid advancing sync state after failed upserts.
+    - Add regression tests for search syntax safety and deleted-book pruning.
+    - Commit changes to git with an appropriate message.
+
 ## Development Conventions
 
 - **Code Style:** Follow standard Go idioms and `gofmt`.
