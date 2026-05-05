@@ -13,7 +13,6 @@ const (
 // Feed represents an Atom Feed element, the root of an OPDS catalog.
 type Feed struct {
 	XMLName xml.Name `xml:"http://www.w3.org/2005/Atom feed"`
-	Xmlns   string   `xml:"xmlns,attr"`
 	Opds    string   `xml:"xmlns:opds,attr"`
 
 	ID      string    `xml:"id"`
@@ -83,7 +82,6 @@ type Content struct {
 // NewFeed creates a new Feed with the standard OPDS 1.2 namespaces.
 func NewFeed(title, id string, links []Link) Feed {
 	return Feed{
-		Xmlns:   AtomNamespace,
 		Opds:    OPDSNamespace,
 		Title:   title,
 		ID:      id,

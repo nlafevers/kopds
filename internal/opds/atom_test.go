@@ -21,10 +21,6 @@ func TestNewFeed(t *testing.T) {
 		t.Errorf("expected id %s, got %s", id, feed.ID)
 	}
 
-	if feed.Xmlns != AtomNamespace {
-		t.Errorf("expected xmlns %s, got %s", AtomNamespace, feed.Xmlns)
-	}
-
 	if feed.Opds != OPDSNamespace {
 		t.Errorf("expected opds xmlns %s, got %s", OPDSNamespace, feed.Opds)
 	}
