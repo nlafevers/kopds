@@ -35,7 +35,7 @@ func TestOPDSIntegration(t *testing.T) {
 		},
 	}
 	svc := service.NewBookService(repo, linkGen)
-	h := NewHandler(svc, linkGen, nil, "")
+	h := NewHandler(svc, nil, linkGen, nil, "")
 
 	r := chi.NewRouter()
 	r.Route("/opds/v1.2", func(r chi.Router) {

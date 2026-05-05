@@ -6,6 +6,7 @@
 *.db
 *.db-shm
 *.db-wal
+.calibre/
 
 # IDE/editor files
 .vscode/

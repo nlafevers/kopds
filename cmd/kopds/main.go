@@ -14,11 +14,13 @@ import (
 	"github.com/nlafevers/kopds/internal/api"
 	"github.com/nlafevers/kopds/internal/config"
 	"github.com/nlafevers/kopds/internal/database"
+	"github.com/nlafevers/kopds/internal/domain"
 	"github.com/nlafevers/kopds/internal/image"
 	"github.com/nlafevers/kopds/internal/logger"
 	"github.com/nlafevers/kopds/internal/scanner"
 	"github.com/nlafevers/kopds/internal/service"
 	"github.com/nlafevers/kopds/pkg/utils"
+	"github.com/rs/zerolog"
 )
 
 func main() {
@@ -31,6 +33,56 @@ func main() {
 
 	// 2. Initialize Logger
 	log := logger.New(cfg.LogLevel, cfg.JSONLog)
+
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "create-user":
+			if len(os.Args) < 4 {
+				fmt.Println("Usage: kopds create-user <username> <password>")
+				os.Exit(1)
+			}
+			createUser(cfg, os.Args[2], os.Args[3])
+			return
+		}
+	}
+
+	runServer(cfg, log)
+}
+
+func createUser(cfg *config.Config, username, password string) {
+	db, err := database.NewSQLite(cfg.DatabasePath)
+	if err != nil {
+		fmt.Printf("Failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	if err := database.Migrate(db); err != nil {
+		fmt.Printf("Failed to run migrations: %v\n", err)
+		os.Exit(1)
+	}
+
+	userRepo := database.NewUserRepository(db)
+	hash, err := api.HashPassword(password)
+	if err != nil {
+		fmt.Printf("Failed to hash password: %v\n", err)
+		os.Exit(1)
+	}
+
+	user := &domain.User{
+		Username: username,
+		Password: hash,
+	}
+
+	if err := userRepo.Save(context.Background(), user); err != nil {
+		fmt.Printf("Failed to save user: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("User '%s' created/updated successfully.\n", username)
+}
+
+func runServer(cfg *config.Config, log zerolog.Logger) {
 	log.Info().Msg("Starting KOPDS server...")
 
 	// 3. Validate Config
@@ -52,6 +104,7 @@ func main() {
 
 	// 5. Initialize Scanner
 	bookRepo := database.NewBookRepository(db)
+	userRepo := database.NewUserRepository(db)
 	engine := scanner.NewSyncEngine(bookRepo, cfg.LibraryPath, log)
 
 	workerCtx, workerCancel := context.WithCancel(context.Background())
@@ -67,7 +120,7 @@ func main() {
 
 	linkGen := utils.NewLinkGenerator(cfg.BaseURL)
 	bookService := service.NewBookService(bookRepo, linkGen)
-	h := api.NewHandler(bookService, linkGen, imageCache, cfg.LibraryPath)
+	h := api.NewHandler(bookService, userRepo, linkGen, imageCache, cfg.LibraryPath)
 
 	// 7. Setup Router
 	r := chi.NewRouter()
@@ -85,6 +138,7 @@ func main() {
 
 	// OPDS Routes
 	r.Route("/opds/v1.2", func(r chi.Router) {
+		r.Use(h.BasicAuth)
 		r.Get("/catalog", h.NavigationFeedHandler)
 		r.Get("/authors", h.AuthorsFeedHandler)
 		r.Get("/authors/{id}", h.AuthorBooksHandler)
@@ -96,7 +150,9 @@ func main() {
 		r.Get("/cover/{id}", h.CoverHandler)
 		r.Get("/download/{id}/{format}", h.BookFileHandler)
 		r.Get("/opensearch.xml", h.OpenSearchDescriptorHandler)
-		})	// 8. Start Server
+	})
+
+	// 8. Start Server
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: r,
@@ -109,7 +165,7 @@ func main() {
 		}
 	}()
 
-	// 8. Graceful Shutdown
+	// 9. Graceful Shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 

@@ -17,13 +17,33 @@ import (
 	"github.com/nlafevers/kopds/pkg/utils"
 )
 
+type mockUserRepo struct {
+	domain.UserRepository
+	getByUsernameFunc func(ctx context.Context, username string) (*domain.User, error)
+	saveFunc          func(ctx context.Context, user *domain.User) error
+}
+
+func (m *mockUserRepo) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
+	if m.getByUsernameFunc != nil {
+		return m.getByUsernameFunc(ctx, username)
+	}
+	return nil, nil
+}
+
+func (m *mockUserRepo) Save(ctx context.Context, user *domain.User) error {
+	if m.saveFunc != nil {
+		return m.saveFunc(ctx, user)
+	}
+	return nil
+}
+
 func TestNavigationFeedHandler(t *testing.T) {
 	// Setup
 	linkGen := utils.NewLinkGenerator("http://localhost:8080")
 	// BookService requires a repository, but NavigationFeedHandler doesn't use it yet.
 	// So we can pass nil or a mock if needed.
 	svc := service.NewBookService(nil, linkGen)
-	h := NewHandler(svc, linkGen, nil, "")
+	h := NewHandler(svc, nil, linkGen, nil, "")
 
 	req, err := http.NewRequest("GET", "/opds/v1.2/catalog", nil)
 	if err != nil {
@@ -153,7 +173,7 @@ func TestAuthorsFeedHandler(t *testing.T) {
 		},
 	}
 	svc := service.NewBookService(repo, linkGen)
-	h := NewHandler(svc, linkGen, nil, "")
+	h := NewHandler(svc, nil, linkGen, nil, "")
 
 	req, _ := http.NewRequest("GET", "/opds/v1.2/authors", nil)
 	rr := httptest.NewRecorder()
@@ -211,7 +231,7 @@ func TestSeriesFeedHandler(t *testing.T) {
 		},
 	}
 	svc := service.NewBookService(repo, linkGen)
-	h := NewHandler(svc, linkGen, nil, "")
+	h := NewHandler(svc, nil, linkGen, nil, "")
 
 	req, _ := http.NewRequest("GET", "/opds/v1.2/series", nil)
 	rr := httptest.NewRecorder()
@@ -287,7 +307,7 @@ func TestNewestFeedHandler(t *testing.T) {
 		},
 	}
 	svc := service.NewBookService(repo, linkGen)
-	h := NewHandler(svc, linkGen, nil, "")
+	h := NewHandler(svc, nil, linkGen, nil, "")
 
 	req, _ := http.NewRequest("GET", "/opds/v1.2/newest", nil)
 	rr := httptest.NewRecorder()
@@ -403,7 +423,7 @@ func TestSearchFeedHandler(t *testing.T) {
 		},
 	}
 	svc := service.NewBookService(repo, linkGen)
-	h := NewHandler(svc, linkGen, nil, "")
+	h := NewHandler(svc, nil, linkGen, nil, "")
 
 	// Execute search
 	req, _ := http.NewRequest("GET", "/opds/v1.2/search?q=Go", nil)
@@ -438,7 +458,7 @@ func TestOpenSearchDescriptorHandler(t *testing.T) {
 	// Setup
 	linkGen := utils.NewLinkGenerator("http://localhost:8080")
 	svc := service.NewBookService(nil, linkGen)
-	h := NewHandler(svc, linkGen, nil, "")
+	h := NewHandler(svc, nil, linkGen, nil, "")
 
 	req, _ := http.NewRequest("GET", "/opds/v1.2/opensearch.xml", nil)
 	rr := httptest.NewRecorder()
@@ -510,7 +530,7 @@ func TestCoverHandler(t *testing.T) {
 	
 	cache, _ := image.NewDiskCache(cachePath, 10)
 	svc := service.NewBookService(repo, linkGen)
-	h := NewHandler(svc, linkGen, cache, libraryPath)
+	h := NewHandler(svc, nil, linkGen, cache, libraryPath)
 
 	// Test 404
 	req, _ := http.NewRequest("GET", "/opds/v1.2/cover/2", nil)
