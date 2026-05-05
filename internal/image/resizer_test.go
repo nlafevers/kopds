@@ -45,3 +45,21 @@ func TestResize(t *testing.T) {
 		t.Errorf("expected dimensions 25x50, got %dx%d", width, height)
 	}
 }
+
+func TestResizeRejectsInvalidDimensions(t *testing.T) {
+	var buf bytes.Buffer
+	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	if err := jpeg.Encode(&buf, img, nil); err != nil {
+		t.Fatalf("failed to encode test image: %v", err)
+	}
+
+	if _, err := Resize(&buf, MaxCoverWidth+1, 50); err == nil {
+		t.Fatal("expected resize to reject oversized width")
+	}
+}
+
+func TestResizeRejectsUnsupportedFormat(t *testing.T) {
+	if _, err := Resize(bytes.NewReader([]byte("not an image")), 50, 50); err == nil {
+		t.Fatal("expected resize to reject unsupported input")
+	}
+}
