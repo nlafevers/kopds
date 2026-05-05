@@ -150,18 +150,18 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - Commit changes to git with an appropriate message.
 
 
-- [ ] **Phase 6: Deployment and Packaging**
+- [x] **Phase 6: Deployment and Packaging**
 
-  - [ ] **Step 6.1:**
+  - [x] **Step 6.1:**
     - Create a multi-stage Dockerfile.
     - Use a golang builder image to compile the application with CGO_ENABLED=0 to ensure a static binary, then copy it into a minimal alpine or scratch runtime image.
   
-  - [ ] **Step 6.2:**
+  - [x] **Step 6.2:**
     - Create a docker-compose.yml template for users.
     - Map external volumes for the Calibre Library (Read-Only) and the local KOPDS SQLite index database (Read-Write).
     - Expose the necessary environment variables (via viper) for configuration.
 
-  - [ ] **Step 6.3:**
+  - [x] **Step 6.3:**
     - Add deployment documentation.
     - Write clear instructions emphasizing that KOPDS should be deployed behind a reverse proxy (e.g., Caddy, Traefik, Nginx) with HTTPS enabled, as Basic Auth transmits credentials in plain text.
 
