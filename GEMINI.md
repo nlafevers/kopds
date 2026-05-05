@@ -110,7 +110,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - [ ] **Step 4.5:**
+  - [x] **Step 4.5:**
     - Verify image caching and streaming performance.
     - Perform load tests on the image cache and verify successful book downloads in KOReader.
     - Update GEMINI.md roadmap status.
