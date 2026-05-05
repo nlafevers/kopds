@@ -119,7 +119,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 
 - [ ] **Phase 5: Multi-User & Security**
 
-  - [ ] **Step 5.1:**
+  - [x] **Step 5.1:**
     - Implement `internal/api/auth.go` for password hashing and verification.
     - Use `golang.org/x/crypto/bcrypt` to implement `HashPassword(password string)` and `CheckPasswordHash(password, hash string)`.
     - Update GEMINI.md roadmap status.
@@ -139,7 +139,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 
   - [ ] **Step 5.4:**
     - Implement `AdminHandler` for basic user creation.
-    - Create a secure command-line or internal endpoint for creating the initial admin user.
+    - Create a secure command-line tool (e.g., `./kopds create-user`) for creating the initial admin user.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
