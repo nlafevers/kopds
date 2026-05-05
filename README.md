@@ -36,10 +36,12 @@ The easiest way to run KOPDS is via Docker.
           - "8080:8080"
         volumes:
           - /path/to/your/calibre/library:/library:ro
-          - ./data:/root/data
-          - ./cache:/root/cache
+          - ./data:/data
+          - ./cache:/cache
         environment:
           - KOPDS_LIBRARY_PATH=/library
+          - KOPDS_DATABASE_PATH=/data/kopds.db
+          - KOPDS_IMAGE_CACHE_PATH=/cache/images
     ```
 2.  Start the container:
     ```bash
@@ -47,7 +49,7 @@ The easiest way to run KOPDS is via Docker.
     ```
 3.  Create your initial admin user:
     ```bash
-    docker exec -it kopds ./kopds create-user admin yourpassword
+    printf '%s\n' 'yourpassword' | docker exec -i kopds ./kopds create-user admin --password-stdin
     ```
 
 ### Binary Installation
@@ -59,7 +61,7 @@ The easiest way to run KOPDS is via Docker.
 2.  Configure `config.yaml` (see sample in repo).
 3.  Create your admin user:
     ```bash
-    ./kopds create-user admin yourpassword
+    ./kopds create-user admin
     ```
 4.  Run the server:
     ```bash
