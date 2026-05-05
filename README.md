@@ -19,35 +19,62 @@ While many OPDS servers exist, KOPDS focuses on three core pillars:
 - **Zero-Dependency Architecture:** Minimal external requirements; perfect for containerized deployments.
 - **Clean Architecture Approach:** Domain logic is separated from infrastructure concerns. It features a background scanner that incrementally synchronizes your library, an optimized media delivery pipeline, and a robust API layer for OPDS delivery.
 
-## Quick Start
+## Getting Started
 
-### Prerequisites
-- Go 1.22 or higher.
+### Docker (Recommended)
 
-### Installation
-```bash
-git clone https://github.com/nlafevers/kopds
-cd kopds
-go build -o kopds ./cmd/kopds
-```
+The easiest way to run KOPDS is via Docker.
 
-### Configuration
-Create a `config.yaml` file in the project root:
+1.  Create a `docker-compose.yml` file:
+    ```yaml
+    services:
+      kopds:
+        image: nlafevers/kopds:latest # or build: .
+        container_name: kopds
+        restart: unless-stopped
+        ports:
+          - "8080:8080"
+        volumes:
+          - /path/to/your/calibre/library:/library:ro
+          - ./data:/root/data
+          - ./cache:/root/cache
+        environment:
+          - KOPDS_LIBRARY_PATH=/library
+    ```
+2.  Start the container:
+    ```bash
+    docker compose up -d
+    ```
+3.  Create your initial admin user:
+    ```bash
+    docker exec -it kopds ./kopds create-user admin yourpassword
+    ```
 
-```yaml
-library_path: /path/to/your/calibre/library
-database_path: ./data/kopds.db
-port: 8080
-log_level: info
-```
+### Binary Installation
 
-### Running
-```bash
-./kopds --config config.yaml
-```
+1.  Build the binary:
+    ```bash
+    go build -o kopds ./cmd/kopds
+    ```
+2.  Configure `config.yaml` (see sample in repo).
+3.  Create your admin user:
+    ```bash
+    ./kopds create-user admin yourpassword
+    ```
+4.  Run the server:
+    ```bash
+    ./kopds
+    ```
 
-## Development
-This project is still under active development and is not yet ready for deployment.
+## Deployment Guidelines
+
+### Security & Reverse Proxy
+
+KOPDS uses **HTTP Basic Authentication** for simplicity and compatibility with KOReader. Since Basic Auth transmits credentials in plain text, you **must** deploy KOPDS behind a reverse proxy (e.g., Caddy, Nginx, Traefik) that provides **HTTPS**.
+
+### Storage Performance
+
+For optimal performance, ensure the `data` directory (which holds the SQLite index) is stored on **local high-speed storage** (SSD/NVMe). While your Calibre library can reside on a high-latency network share (SMB/NFS), the KOPDS index database must be on local storage to prevent SQLite locking issues and ensure rapid response times.
 
 ## License
 GPL-3.0 license
