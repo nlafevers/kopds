@@ -18,18 +18,22 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o kopds ./cmd/kopds/main.go
 
 # Run stage
-FROM alpine:3.19
+FROM alpine:3.22
 
 # Add CA certificates for HTTPS requests if needed
 RUN apk add --no-cache ca-certificates tzdata
 
-WORKDIR /root/
+RUN addgroup -S kopds && adduser -S -D -H -h /app -G kopds kopds
+
+WORKDIR /app
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/kopds .
 
 # Create default directories for data and cache
-RUN mkdir -p data cache/images
+RUN mkdir -p /data /cache/images && chown -R kopds:kopds /data /cache
+
+USER kopds
 
 # Expose the default port
 EXPOSE 8080

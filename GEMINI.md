@@ -185,6 +185,12 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - Add regression tests for search syntax safety and deleted-book pruning.
     - Commit changes to git with an appropriate message.
 
+  - [x] **Step 7.4:**
+    - Replace positional `create-user` passwords with interactive prompt or `--password-stdin`.
+    - Update Docker runtime to a supported Alpine base and non-root execution.
+    - Update Docker Compose and README deployment examples for hardened paths and admin creation.
+    - Commit changes to git with an appropriate message.
+
 ## Development Conventions
 
 - **Code Style:** Follow standard Go idioms and `gofmt`.

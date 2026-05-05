@@ -5,18 +5,21 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
     volumes:
       # Mount your Calibre library (Read-Only)
       - /path/to/your/calibre/library:/library:ro
       # Mount a local directory for the KOPDS index and user database
-      - ./data:/root/data
+      - ./data:/data
       # Mount a local directory for the image cache
-      - ./cache:/root/cache
+      - ./cache:/cache
     environment:
       # These variables override config.yaml
       - KOPDS_LIBRARY_PATH=/library
-      - KOPDS_DATABASE_PATH=/root/data/kopds.db
-      - KOPDS_IMAGE_CACHE_PATH=/root/cache/images
+      - KOPDS_DATABASE_PATH=/data/kopds.db
+      - KOPDS_IMAGE_CACHE_PATH=/cache/images
       - KOPDS_LOG_LEVEL=info
       - KOPDS_PORT=8080
       # Change this to your public domain if using a reverse proxy

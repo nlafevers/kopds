@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +24,7 @@ import (
 	"github.com/nlafevers/kopds/internal/service"
 	"github.com/nlafevers/kopds/pkg/utils"
 	"github.com/rs/zerolog"
+	"golang.org/x/term"
 )
 
 func main() {
@@ -37,11 +41,16 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "create-user":
-			if len(os.Args) < 4 {
-				fmt.Println("Usage: kopds create-user <username> <password>")
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: kopds create-user <username> [--password-stdin]")
 				os.Exit(1)
 			}
-			createUser(cfg, os.Args[2], os.Args[3])
+			password, err := passwordFromArgs(os.Args[3:], os.Stdin, os.Stdout)
+			if err != nil {
+				fmt.Printf("Failed to read password: %v\n", err)
+				os.Exit(1)
+			}
+			createUser(cfg, os.Args[2], password)
 			return
 		}
 	}
@@ -80,6 +89,56 @@ func createUser(cfg *config.Config, username, password string) {
 	}
 
 	fmt.Printf("User '%s' created/updated successfully.\n", username)
+}
+
+func passwordFromArgs(args []string, stdin io.Reader, stdout io.Writer) (string, error) {
+	switch len(args) {
+	case 0:
+		return readPasswordInteractively(stdout)
+	case 1:
+		if args[0] != "--password-stdin" {
+			return "", errors.New("password arguments are not supported; use interactive prompt or --password-stdin")
+		}
+		passwordBytes, err := io.ReadAll(stdin)
+		if err != nil {
+			return "", err
+		}
+		password := strings.TrimRight(string(passwordBytes), "\r\n")
+		if password == "" {
+			return "", errors.New("password cannot be empty")
+		}
+		return password, nil
+	default:
+		return "", errors.New("too many arguments")
+	}
+}
+
+func readPasswordInteractively(stdout io.Writer) (string, error) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return "", errors.New("stdin is not a terminal; use --password-stdin for automation")
+	}
+
+	fmt.Fprint(stdout, "Password: ")
+	first, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(stdout)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Fprint(stdout, "Confirm password: ")
+	second, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(stdout)
+	if err != nil {
+		return "", err
+	}
+
+	if string(first) == "" {
+		return "", errors.New("password cannot be empty")
+	}
+	if string(first) != string(second) {
+		return "", errors.New("passwords do not match")
+	}
+	return string(first), nil
 }
 
 func runServer(cfg *config.Config, log zerolog.Logger) {
