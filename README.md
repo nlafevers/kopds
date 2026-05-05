@@ -6,7 +6,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 
 While many OPDS servers exist, KOPDS focuses on three core pillars:
 
-1.  **Extreme Performance:** By mirroring your Calibre `metadata.db` to a local, optimized SQLite index, KOPDS provides near-instant search and navigation, even when your library is stored on a slow network share.
+1.  **High Performance:** By mirroring your Calibre `metadata.db` to a local, optimized SQLite index, KOPDS provides near-instant search and navigation, even when your library is stored on a slow network share.
 2.  **Resource Efficiency:** Built in pure Go, KOPDS has a minimal memory footprint and compiles to a single, portable binary, making it ideal for low-power devices like Raspberry Pis or home servers.
 3.  **KOReader Optimization:** Designed with the specific quirks and requirements of KOReader in mind, ensuring a seamless book discovery and acquisition experience.
 
@@ -51,6 +51,7 @@ The easiest way to run KOPDS is via Docker.
     ```bash
     printf '%s\n' 'yourpassword' | docker exec -i kopds ./kopds create-user admin --password-stdin
     ```
+    To avoid exposing passwords to shell history or process listings, the create-user UX uses a hidden terminal prompt for inputting the password.  However, to allow Docker automation `--password-stdin` is an option.
 
 ### Binary Installation
 
