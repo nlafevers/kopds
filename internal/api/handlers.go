@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/xml"
 	"fmt"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -305,9 +306,17 @@ func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	coverPath := filepath.Join(h.LibraryPath, book.Path, "cover.jpg")
+	coverPath, err := safeLibraryPath(h.LibraryPath, book.Path, "cover.jpg")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
 	file, err := os.Open(coverPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			http.NotFound(w, r)
+			return
+		}
 		http.Error(w, "Failed to open cover", http.StatusInternalServerError)
 		return
 	}
@@ -366,8 +375,16 @@ func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileName := fmt.Sprintf("%s.%s", targetFormat.Name, strings.ToLower(targetFormat.Format))
-	filePath := filepath.Join(h.LibraryPath, book.Path, fileName)
+	fileName, err := formatFileName(targetFormat)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	filePath, err := safeLibraryPath(h.LibraryPath, book.Path, fileName)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -376,7 +393,7 @@ func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", getMimeType(targetFormat.Format))
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": fileName}))
 
 	http.ServeFile(w, r, filePath)
 }
@@ -591,4 +608,49 @@ func getMimeType(format string) string {
 	default:
 		return "application/octet-stream"
 	}
+}
+
+func formatFileName(format *domain.Format) (string, error) {
+	baseName := filepath.Base(format.Name)
+	extension := strings.ToLower(format.Format)
+	if baseName == "." || baseName == string(filepath.Separator) || baseName == "" || baseName != format.Name || strings.ContainsAny(format.Name, `/\`) {
+		return "", fmt.Errorf("invalid format name")
+	}
+	if extension == "" || strings.ContainsAny(extension, `/\`) {
+		return "", fmt.Errorf("invalid format extension")
+	}
+	return fmt.Sprintf("%s.%s", baseName, extension), nil
+}
+
+func safeLibraryPath(libraryPath string, parts ...string) (string, error) {
+	root, err := filepath.Abs(libraryPath)
+	if err != nil {
+		return "", err
+	}
+
+	cleanParts := make([]string, 0, len(parts)+1)
+	cleanParts = append(cleanParts, root)
+	for _, part := range parts {
+		if part == "" || filepath.IsAbs(part) {
+			return "", fmt.Errorf("invalid library path component")
+		}
+		clean := filepath.Clean(part)
+		if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+			return "", fmt.Errorf("invalid library path component")
+		}
+		cleanParts = append(cleanParts, clean)
+	}
+
+	target, err := filepath.Abs(filepath.Join(cleanParts...))
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil {
+		return "", err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("path escapes library root")
+	}
+	return target, nil
 }
