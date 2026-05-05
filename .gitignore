@@ -1,5 +1,5 @@
 # Binaries and log
-kopds
+/kopds
 *.log
 
 # Databases and temporary files
