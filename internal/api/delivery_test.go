@@ -68,7 +68,7 @@ func TestDeliveryIntegration(t *testing.T) {
 
 	svc := service.NewBookService(repo, linkGen)
 	imageCache, _ := img.NewDiskCache(cachePath, 10)
-	h := NewHandler(svc, linkGen, imageCache, libraryPath)
+	h := NewHandler(svc, nil, linkGen, imageCache, libraryPath)
 
 	r := chi.NewRouter()
 	r.Route("/opds/v1.2", func(r chi.Router) {

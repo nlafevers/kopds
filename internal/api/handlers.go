@@ -20,15 +20,17 @@ import (
 // Handler handles HTTP requests for the OPDS API.
 type Handler struct {
 	BookService   *service.BookService
+	UserRepo      domain.UserRepository
 	LinkGenerator *utils.LinkGenerator
 	ImageCache    *image.DiskCache
 	LibraryPath   string
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(bookService *service.BookService, linkGenerator *utils.LinkGenerator, imageCache *image.DiskCache, libraryPath string) *Handler {
+func NewHandler(bookService *service.BookService, userRepo domain.UserRepository, linkGenerator *utils.LinkGenerator, imageCache *image.DiskCache, libraryPath string) *Handler {
 	return &Handler{
 		BookService:   bookService,
+		UserRepo:      userRepo,
 		LinkGenerator: linkGenerator,
 		ImageCache:    imageCache,
 		LibraryPath:   libraryPath,

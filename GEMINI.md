@@ -117,7 +117,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - Commit changes to git with an appropriate message.
 
 
-- [ ] **Phase 5: Multi-User & Security**
+- [x] **Phase 5: Multi-User & Security**
 
   - [x] **Step 5.1:**
     - Implement `internal/api/auth.go` for password hashing and verification.
@@ -125,25 +125,25 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - [ ] **Step 5.2:**
+  - [x] **Step 5.2:**
     - Implement `AuthMiddleware` in `internal/api/middleware.go`.
     - Implement an HTTP Basic Auth middleware that checks user credentials against the database.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - [ ] **Step 5.3:**
+  - [x] **Step 5.3:**
     - Implement `UserRepository` logic for user management in `internal/database/user_repository.go`.
     - Complete the implementation of `Save`, `GetByUsername`, and `DeleteUser`.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - [ ] **Step 5.4:**
+  - [x] **Step 5.4:**
     - Implement `AdminHandler` for basic user creation.
     - Create a secure command-line tool (e.g., `./kopds create-user`) for creating the initial admin user.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - [ ] **Step 5.5:**
+  - [x] **Step 5.5:**
     - Perform security audit.
     - Verify that all routes (except health check) are protected and that credentials are not logged.
     - Update GEMINI.md roadmap status.
