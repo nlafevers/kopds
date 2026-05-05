@@ -337,6 +337,59 @@ func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(resizedData)
 }
 
+// BookFileHandler streams a book file in the requested format.
+func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	requestedFormat := strings.ToUpper(chi.URLParam(r, "format"))
+	if requestedFormat == "" {
+		http.Error(w, "Format is required", http.StatusBadRequest)
+		return
+	}
+
+	book, err := h.BookService.GetBookByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if book == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	var targetFormat *domain.Format
+	for _, f := range book.Formats {
+		if strings.ToUpper(f.Format) == requestedFormat {
+			targetFormat = &f
+			break
+		}
+	}
+
+	if targetFormat == nil {
+		http.Error(w, "Format not found for this book", http.StatusNotFound)
+		return
+	}
+
+	fileName := fmt.Sprintf("%s.%s", targetFormat.Name, strings.ToLower(targetFormat.Format))
+	filePath := filepath.Join(h.LibraryPath, book.Path, fileName)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		http.Error(w, "File not found on disk", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", getMimeType(targetFormat.Format))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+	
+	http.ServeFile(w, r, filePath)
+}
+
 // Helpers
 // OpenSearchDescriptorHandler serves the OpenSearch description XML.
 func (h *Handler) OpenSearchDescriptorHandler(w http.ResponseWriter, r *http.Request) {

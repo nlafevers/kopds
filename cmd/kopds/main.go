@@ -93,6 +93,7 @@ func main() {
 		r.Get("/books/{id}", h.BookDetailHandler)
 		r.Get("/search", h.SearchFeedHandler)
 		r.Get("/cover/{id}", h.CoverHandler)
+		r.Get("/download/{id}/{format}", h.BookFileHandler)
 		r.Get("/opensearch.xml", h.OpenSearchDescriptorHandler)
 		})	// 8. Start Server
 	srv := &http.Server{

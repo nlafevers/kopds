@@ -4,7 +4,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 
 ## Project Overview
 
-- **Purpose:** Provide a fast, reliable, and professional-grade OPDS 1.2 interface to a Calibre library.
+- **Purpose:** Provide a fast, reliable KOReader compatible OPDS 1.2 interface to a Calibre library.
 - **Core Technologies:**
   - **Language:** Go (Golang) for a single-binary, low-memory footprint.
   - **Database:** Pure Go SQLite (`modernc.org/sqlite`) for local indexing and multi-user support.
@@ -14,6 +14,7 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
   - **Clean Architecture:** Separation of domain logic, use cases, and infrastructure.
   - **Background Indexing:** A synchronization engine that mirrors Calibre's `metadata.db` to a local index for instant querying.
   - **Image Pipeline:** On-the-fly thumbnail generation with a local LRU file cache.
+  - **Deployment:** Ships as a standalone, single-executable binary for bare-metal execution, alongside a lightweight, CGO-free Docker image (scratch or alpine) for seamless home lab containerization.
 
 ## Roadmap Status
 
@@ -84,32 +85,32 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 
 - [ ] **Phase 4: Image & File Delivery**
 
-  - **Step 4.1:**
+  - [x] **Step 4.1:**
     - Create `internal/image/resizer.go` and implement `Resize(src io.Reader, width, height int) ([]byte, error)`.
     - Use `disintegration/imaging` to perform high-quality, efficient thumbnail generation.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - **Step 4.2:**
+  - [x] **Step 4.2:**
     - Implement `internal/image/cache.go` for LRU (Least Recently Used) disk-based caching.
     - Create a `DiskCache` struct that manages a directory of images, ensuring we don't exceed a defined max size/count.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - **Step 4.3:**
+  - [x] **Step 4.3:**
     - Implement `CoverHandler` in `internal/api/handlers.go`.
     - Create the endpoint `/opds/v1.2/cover/{bookID}` that checks the cache first, resizes if missing, and streams the image.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - **Step 4.4:**
+  - [x] **Step 4.4:**
     - Implement `BookFileHandler` in `internal/api/handlers.go`.
     - Create the endpoint `/opds/v1.2/download/{bookID}/{format}` to stream book files from the Calibre library.
     - Set correct `Content-Type` and `Content-Disposition` headers.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - **Step 4.5:**
+  - [ ] **Step 4.5:**
     - Verify image caching and streaming performance.
     - Perform load tests on the image cache and verify successful book downloads in KOReader.
     - Update GEMINI.md roadmap status.
@@ -118,36 +119,51 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 
 - [ ] **Phase 5: Multi-User & Security**
 
-  - **Step 5.1:**
+  - [ ] **Step 5.1:**
     - Implement `internal/api/auth.go` for password hashing and verification.
     - Use `golang.org/x/crypto/bcrypt` to implement `HashPassword(password string)` and `CheckPasswordHash(password, hash string)`.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - **Step 5.2:**
+  - [ ] **Step 5.2:**
     - Implement `AuthMiddleware` in `internal/api/middleware.go`.
     - Implement an HTTP Basic Auth middleware that checks user credentials against the database.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - **Step 5.3:**
+  - [ ] **Step 5.3:**
     - Implement `UserRepository` logic for user management in `internal/database/user_repository.go`.
     - Complete the implementation of `Save`, `GetByUsername`, and `DeleteUser`.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - **Step 5.4:**
+  - [ ] **Step 5.4:**
     - Implement `AdminHandler` for basic user creation.
     - Create a secure command-line or internal endpoint for creating the initial admin user.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
-  - **Step 5.5:**
+  - [ ] **Step 5.5:**
     - Perform security audit.
     - Verify that all routes (except health check) are protected and that credentials are not logged.
     - Update GEMINI.md roadmap status.
     - Commit changes to git with an appropriate message.
 
+
+- [ ] **Phase 6: Deployment and Packaging**
+
+  - [ ] **Step 6.1:**
+    - Create a multi-stage Dockerfile.
+    - Use a golang builder image to compile the application with CGO_ENABLED=0 to ensure a static binary, then copy it into a minimal alpine or scratch runtime image.
+  
+  - [ ] **Step 6.2:**
+    - Create a docker-compose.yml template for users.
+    - Map external volumes for the Calibre Library (Read-Only) and the local KOPDS SQLite index database (Read-Write).
+    - Expose the necessary environment variables (via viper) for configuration.
+
+  - [ ] **Step 6.3:**
+    - Add deployment documentation.
+    - Write clear instructions emphasizing that KOPDS should be deployed behind a reverse proxy (e.g., Caddy, Traefik, Nginx) with HTTPS enabled, as Basic Auth transmits credentials in plain text.
 
 ## Development Conventions
 
@@ -156,3 +172,4 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 - **Database:** Treat the Calibre `metadata.db` as read-only. All writes must occur in the local index database.
 - **Error Handling:** Use structured logging with `rs/zerolog` and avoid swallowing errors.
 - **Testing:** Aim for high unit test coverage in the `internal/domain` and `internal/opds` packages. Use a mock library for integration tests.
+- **Docker & Storage:** When containerized, ensure the local KOPDS SQLite index is stored on a local volume attached to the host, not on the mounted high-latency network share (SMB/NFS), to prevent SQLite database locking issues and corruption.
