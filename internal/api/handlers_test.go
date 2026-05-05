@@ -78,10 +78,10 @@ func TestNavigationFeedHandler(t *testing.T) {
 
 	// Check for expected links
 	expectedRels := map[string]bool{
-		"self":                         true,
-		"subsection":                   true,
+		"self":                          true,
+		"subsection":                    true,
 		"http://opds-spec.org/sort/new": true,
-		"search":                       true,
+		"search":                        true,
 	}
 
 	foundRels := make(map[string]int)
@@ -94,7 +94,7 @@ func TestNavigationFeedHandler(t *testing.T) {
 			t.Errorf("missing expected link rel: %s", rel)
 		}
 	}
-	
+
 	if foundRels["subsection"] < 2 {
 		t.Errorf("expected at least 2 subsection links (Authors, Series), got %d", foundRels["subsection"])
 	}
@@ -502,13 +502,13 @@ func TestCoverHandler(t *testing.T) {
 	libraryPath := filepath.Join(tempDir, "library")
 	cachePath := filepath.Join(tempDir, "cache")
 	os.MkdirAll(libraryPath, 0755)
-	
+
 	// Create a dummy cover.jpg
 	bookPath := "Author/Book (1)"
 	os.MkdirAll(filepath.Join(libraryPath, bookPath), 0755)
-	
+
 	// Create a real small JPEG to avoid decode errors
-	// But for a unit test, we can just mock imaging if we wanted, 
+	// But for a unit test, we can just mock imaging if we wanted,
 	// but here we are using the real image package.
 	// Let's create a minimal valid JPEG.
 	// Actually, easier to just use a 1x1 pixel image.
@@ -527,7 +527,7 @@ func TestCoverHandler(t *testing.T) {
 			return nil, nil
 		},
 	}
-	
+
 	cache, _ := image.NewDiskCache(cachePath, 10)
 	svc := service.NewBookService(repo, linkGen)
 	h := NewHandler(svc, nil, linkGen, cache, libraryPath)
@@ -535,7 +535,7 @@ func TestCoverHandler(t *testing.T) {
 	// Test 404
 	req, _ := http.NewRequest("GET", "/opds/v1.2/cover/2", nil)
 	rr := httptest.NewRecorder()
-	
+
 	r := chi.NewRouter()
 	r.Get("/opds/v1.2/cover/{id}", h.CoverHandler)
 	r.ServeHTTP(rr, req)
@@ -550,5 +550,13 @@ func TestCoverHandler(t *testing.T) {
 	r.ServeHTTP(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for invalid ID, got %d", rr.Code)
+	}
+
+	// Test Invalid Dimensions
+	req, _ = http.NewRequest("GET", "/opds/v1.2/cover/1?w=9999&h=150", nil)
+	rr = httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid dimensions, got %d", rr.Code)
 	}
 }

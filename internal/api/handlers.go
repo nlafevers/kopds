@@ -236,38 +236,38 @@ func (h *Handler) BookDetailHandler(w http.ResponseWriter, r *http.Request) {
 			Href: h.LinkGenerator.BookDetail(idStr),
 		},
 	}
-feed := opds.NewFeed(book.Title, "book-detail-"+idStr, links)
-h.appendBookEntries(&feed, []domain.Book{*book})
-h.sendFeed(w, feed)
+	feed := opds.NewFeed(book.Title, "book-detail-"+idStr, links)
+	h.appendBookEntries(&feed, []domain.Book{*book})
+	h.sendFeed(w, feed)
 }
 
 // SearchFeedHandler returns a paginated list of books matching the search query.
 func (h *Handler) SearchFeedHandler(w http.ResponseWriter, r *http.Request) {
-query := r.URL.Query().Get("q")
-page := getPage(r)
+	query := r.URL.Query().Get("q")
+	page := getPage(r)
 
-if query == "" {
-	// Return empty feed or bad request? Standard OPDS usually just returns empty feed.
-	feed := opds.NewFeed("Search Results", "search-results", nil)
+	if query == "" {
+		// Return empty feed or bad request? Standard OPDS usually just returns empty feed.
+		feed := opds.NewFeed("Search Results", "search-results", nil)
+		h.sendFeed(w, feed)
+		return
+	}
+
+	books, total, err := h.BookService.SearchBooks(r.Context(), query, page)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	lastPage := calculateLastPage(total)
+	linkFunc := func(p int) string {
+		return fmt.Sprintf("%s?q=%s", h.LinkGenerator.Search(p), query)
+	}
+	links := h.generatePaginationLinks(linkFunc, page, lastPage, "Search Results")
+	feed := opds.NewFeed("Search Results: "+query, "search-results", links)
+
+	h.appendBookEntries(&feed, books)
 	h.sendFeed(w, feed)
-	return
-}
-
-books, total, err := h.BookService.SearchBooks(r.Context(), query, page)
-if err != nil {
-	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	return
-}
-
-lastPage := calculateLastPage(total)
-linkFunc := func(p int) string {
-	return fmt.Sprintf("%s?q=%s", h.LinkGenerator.Search(p), query)
-}
-links := h.generatePaginationLinks(linkFunc, page, lastPage, "Search Results")
-feed := opds.NewFeed("Search Results: "+query, "search-results", links)
-
-h.appendBookEntries(&feed, books)
-h.sendFeed(w, feed)
 }
 
 // CoverHandler serves the cover image for a book, resizing it if necessary and caching the result.
@@ -279,21 +279,10 @@ func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wParam := r.URL.Query().Get("w")
-	hParam := r.URL.Query().Get("h")
-
-	width := 300
-	height := 450
-
-	if wParam != "" {
-		if val, err := strconv.Atoi(wParam); err == nil && val > 0 {
-			width = val
-		}
-	}
-	if hParam != "" {
-		if val, err := strconv.Atoi(hParam); err == nil && val > 0 {
-			height = val
-		}
+	width, height, err := getCoverDimensions(r)
+	if err != nil {
+		http.Error(w, "Invalid cover dimensions", http.StatusBadRequest)
+		return
 	}
 
 	cacheKey := fmt.Sprintf("%s_%dx%d.jpg", idStr, width, height)
@@ -388,7 +377,7 @@ func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", getMimeType(targetFormat.Format))
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
-	
+
 	http.ServeFile(w, r, filePath)
 }
 
@@ -441,6 +430,32 @@ func getPage(r *http.Request) int {
 		}
 	}
 	return 1
+}
+
+func getCoverDimensions(r *http.Request) (int, int, error) {
+	width := 300
+	height := 450
+
+	if wParam := r.URL.Query().Get("w"); wParam != "" {
+		val, err := strconv.Atoi(wParam)
+		if err != nil {
+			return 0, 0, err
+		}
+		width = val
+	}
+
+	if hParam := r.URL.Query().Get("h"); hParam != "" {
+		val, err := strconv.Atoi(hParam)
+		if err != nil {
+			return 0, 0, err
+		}
+		height = val
+	}
+
+	if err := image.ValidateDimensions(width, height); err != nil {
+		return 0, 0, err
+	}
+	return width, height, nil
 }
 
 func calculateLastPage(total int) int {
