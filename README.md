@@ -38,7 +38,7 @@ You can also build the binary from source and deploy natively on your host.
     ```bash
     mkdir PROJECT_ROOT && cd PROJECT_ROOT
     ```
-2.  Create a `docker-compose.yml` file in the project root (make sure to change the path to your Calibre library):
+2.  Create a `docker-compose.yml` file in the project root.  Make sure to change the path to your Calibre library.  Make sure to change the KOPDS_BASE_URL to match the IP address or domain name that your Koreader devices use to connect.
     ```yaml
     services:
       kopds:
@@ -63,7 +63,7 @@ You can also build the binary from source and deploy natively on your host.
           - KOPDS_IMAGE_CACHE_PATH=/cache/images
           - KOPDS_LOG_LEVEL=info
           - KOPDS_PORT=8080
-          - KOPDS_BASE_URL=http://localhost:8080
+          - KOPDS_BASE_URL=http://DOMAIN_NAME:8080
 
       # You must declare named volumes at the bottom of the file
       volumes:
@@ -105,7 +105,7 @@ You can also build the binary from source and deploy natively on your host.
     ```bash
     git clone --depth 1 --branch $(curl -s https://api.github.com/repos/nlafevers/kopds/releases/latest | grep "tag_name" | cut -d '"' -f 4) https://github.com/nlafevers/kopds.git
     ```
-2.  Change to the project directory `cd $(ls -td kopds* | head -n 1)` and create a `docker-compose.yml` file (make sure to change the path to your Calibre library):
+2.  Change to the project directory `cd $(ls -td kopds* | head -n 1)` and create a `docker-compose.yml` file.  Make sure to change the path to your Calibre library.  Make sure to change the KOPDS_BASE_URL to match the IP address or domain name that your Koreader devices use to connect.
     ```yaml
     services:
       kopds:
@@ -130,7 +130,7 @@ You can also build the binary from source and deploy natively on your host.
           - KOPDS_IMAGE_CACHE_PATH=/cache/images
           - KOPDS_LOG_LEVEL=info
           - KOPDS_PORT=8080
-          - KOPDS_BASE_URL=http://localhost:8080
+          - KOPDS_BASE_URL=http://DOMAIN_NAME:8080
 
       # You must declare named volumes at the bottom of the file
       volumes:
