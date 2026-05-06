@@ -21,7 +21,7 @@ services:
       - KOPDS_IMAGE_CACHE_PATH=/cache/images
       - KOPDS_LOG_LEVEL=info
       - KOPDS_PORT=8080
-      - KOPDS_BASE_URL=http://localhost:8080
+      - KOPDS_BASE_URL=http://DOMAIN_NAME:8080
 
 # You must declare named volumes at the bottom of the file
 volumes:
