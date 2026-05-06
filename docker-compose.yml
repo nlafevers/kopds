@@ -1,6 +1,6 @@
 services:
   kopds:
-    build: . # Or image: ghcr.io/yourusername/kopds:latest
+    image: ghcr.io/nlafevers/kopds:latest
     container_name: kopds
     restart: unless-stopped
     ports:
@@ -8,22 +8,22 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-    volumes: # [HOST_PATH:CONTAINER_PATH:OPTIONS]
-      # BIND MOUNT: Users map their existing Calibre library here (Read-Only)
-      - /path/to/your/calibre/library:/library:ro
+    volumes:
+      # Path to your Calibre library (keep this read-only)
+      - /path/to/your/calibre/library:/library:ro # [HOST_DIR:CONTAINER_DIR:OPTIONS]
       
-      # NAMED VOLUMES: Docker manages these automatically. No permission issues.
+      # Persistence for KOPDS index and cache (should be on local SSD)
       - kopds_data:/data
       - kopds_cache:/cache
     environment:
       - KOPDS_LIBRARY_PATH=/library
       - KOPDS_DATABASE_PATH=/data/kopds.db
       - KOPDS_IMAGE_CACHE_PATH=/cache/images
+      - KOPDS_BASE_URL=http://your-server-ip:8080 # Change to your IP/Domain
       - KOPDS_LOG_LEVEL=info
       - KOPDS_PORT=8080
-      - KOPDS_BASE_URL=http://DOMAIN_NAME:8080
+      - KOPDS_JSON_LOG=true # Recommended for Docker
 
-# You must declare named volumes at the bottom of the file
 volumes:
   kopds_data:
   kopds_cache:
