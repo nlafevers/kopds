@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nlafevers/kopds/internal/domain"
@@ -41,40 +42,101 @@ func NewHandler(bookService *service.BookService, userRepo domain.UserRepository
 
 // NavigationFeedHandler returns the root navigation feed for the OPDS catalog.
 func (h *Handler) NavigationFeedHandler(w http.ResponseWriter, r *http.Request) {
-	links := []opds.Link{
-		{
-			Rel:   "self",
-			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
-			Href:  h.LinkGenerator.RootCatalog(),
-			Title: "Root Catalog",
-		},
-		{
-			Rel:   "subsection",
-			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
-			Href:  h.LinkGenerator.AuthorsList(0),
-			Title: "Authors",
-		},
-		{
-			Rel:   "subsection",
-			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
-			Href:  h.LinkGenerator.SeriesList(0),
-			Title: "Series",
-		},
-		{
-			Rel:   "http://opds-spec.org/sort/new",
-			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
-			Href:  h.LinkGenerator.NewestBooks(0),
-			Title: "Newest Books",
-		},
-		{
-			Rel:   "search",
-			Type:  "application/opensearchdescription+xml",
-			Href:  h.LinkGenerator.OpenSearchDescriptor(),
-			Title: "Search",
+	now := time.Now()
+	feed := opds.Feed{
+		Opds:    opds.OPDSNamespace,
+		Title:   "KOPDS Root Catalog",
+		ID:      "urn:kopds:catalog:root",
+		Updated: now,
+		Links: []opds.Link{
+			{
+				Rel:   "self",
+				Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+				Href:  h.LinkGenerator.RootCatalog(),
+				Title: "Root Catalog",
+			},
+			{
+				Rel:   "start",
+				Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+				Href:  h.LinkGenerator.RootCatalog(),
+				Title: "Root Catalog",
+			},
+			{
+				Rel:   "search",
+				Type:  "application/opensearchdescription+xml",
+				Href:  h.LinkGenerator.OpenSearchDescriptor(),
+				Title: "Search KOPDS",
+			},
 		},
 	}
 
-	feed := opds.NewFeed("KOPDS Root Catalog", "root-catalog", links)
+	// Add Navigation Entries
+	navItems := []struct {
+		title   string
+		id      string
+		rel     string
+		href    string
+		summary string
+	}{
+		{
+			title:   "Authors",
+			id:      "urn:kopds:catalog:authors",
+			rel:     "subsection",
+			href:    h.LinkGenerator.AuthorsList(0),
+			summary: "Browse books by author",
+		},
+		{
+			title:   "Series",
+			id:      "urn:kopds:catalog:series",
+			rel:     "subsection",
+			href:    h.LinkGenerator.SeriesList(0),
+			summary: "Browse books by series",
+		},
+		{
+			title:   "Tags",
+			id:      "urn:kopds:catalog:tags",
+			rel:     "subsection",
+			href:    h.LinkGenerator.TagsList(0),
+			summary: "Browse books by tag",
+		},
+		{
+			title:   "Newest Books",
+			id:      "urn:kopds:catalog:newest",
+			rel:     "http://opds-spec.org/sort/new",
+			href:    h.LinkGenerator.NewestBooks(0),
+			summary: "Recently added books",
+		},
+		{
+			title:   "Search",
+			id:      "urn:kopds:catalog:search",
+			rel:     "search",
+			href:    h.LinkGenerator.OpenSearchDescriptor(),
+			summary: "Search the catalog",
+		},
+	}
+
+	for _, e := range navItems {
+		entry := &opds.Entry{
+			ID:      e.id,
+			Title:   e.title,
+			Updated: now,
+			Summary: &opds.Content{
+				Text: e.summary,
+			},
+			Links: []opds.Link{
+				{
+					Rel:   e.rel,
+					Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+					Href:  e.href,
+					Title: e.title,
+				},
+			},
+		}
+		if e.title == "Search" {
+			entry.Links[0].Type = "application/opensearchdescription+xml"
+		}
+		feed.Entries = append(feed.Entries, entry)
+	}
 
 	w.Header().Set("Content-Type", "application/atom+xml;profile=opds-catalog;kind=navigation;charset=utf-8")
 	w.WriteHeader(http.StatusOK)
@@ -157,6 +219,42 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 	h.sendFeed(w, feed)
 }
 
+// TagsFeedHandler returns a paginated list of tags in the OPDS catalog.
+func (h *Handler) TagsFeedHandler(w http.ResponseWriter, r *http.Request) {
+	page := getPage(r)
+	tags, total, err := h.BookService.GetTags(r.Context(), page)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	lastPage := calculateLastPage(total)
+	links := h.generatePaginationLinks(h.LinkGenerator.TagsList, page, lastPage, "Tags")
+	feed := opds.NewFeed("Tags", "tags-list", links)
+
+	for _, t := range tags {
+		summary := fmt.Sprintf("%d books", t.BookCount)
+		entry := &opds.Entry{
+			ID:    fmt.Sprintf("tag:%d", t.ID),
+			Title: t.Name,
+			Summary: &opds.Content{
+				Text: summary,
+			},
+			Links: []opds.Link{
+				{
+					Rel:   "subsection",
+					Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+					Href:  h.LinkGenerator.TagDetail(strconv.FormatInt(t.ID, 10), 0),
+					Title: t.Name,
+				},
+			},
+		}
+		feed.Entries = append(feed.Entries, entry)
+	}
+
+	h.sendFeed(w, feed)
+}
+
 // NewestFeedHandler returns a paginated list of the newest books in the OPDS catalog.
 func (h *Handler) NewestFeedHandler(w http.ResponseWriter, r *http.Request) {
 	page := getPage(r)
@@ -211,6 +309,27 @@ func (h *Handler) SeriesBooksHandler(w http.ResponseWriter, r *http.Request) {
 	linkFunc := func(p int) string { return h.LinkGenerator.SeriesDetail(idStr, p) }
 	links := h.generatePaginationLinks(linkFunc, page, lastPage, "Books in Series")
 	feed := opds.NewFeed("Books in Series", "series-books-"+idStr, links)
+
+	h.appendBookEntries(&feed, books)
+	h.sendFeed(w, feed)
+}
+
+// TagBooksHandler returns a paginated list of books with a specific tag.
+func (h *Handler) TagBooksHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+	page := getPage(r)
+
+	books, total, err := h.BookService.GetBooksByTag(r.Context(), id, page)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	lastPage := calculateLastPage(total)
+	linkFunc := func(p int) string { return h.LinkGenerator.TagDetail(idStr, p) }
+	links := h.generatePaginationLinks(linkFunc, page, lastPage, "Books with Tag")
+	feed := opds.NewFeed("Books with Tag", "tag-books-"+idStr, links)
 
 	h.appendBookEntries(&feed, books)
 	h.sendFeed(w, feed)

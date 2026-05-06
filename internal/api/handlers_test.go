@@ -77,12 +77,15 @@ func TestNavigationFeedHandler(t *testing.T) {
 		t.Errorf("expected title 'KOPDS Root Catalog', got '%s'", feed.Title)
 	}
 
-	// Check for expected links
+	if feed.ID != "urn:kopds:catalog:root" {
+		t.Errorf("expected ID 'urn:kopds:catalog:root', got '%s'", feed.ID)
+	}
+
+	// Check for expected top-level links
 	expectedRels := map[string]bool{
-		"self":                          true,
-		"subsection":                    true,
-		"http://opds-spec.org/sort/new": true,
-		"search":                        true,
+		"self":   true,
+		"start":  true,
+		"search": true,
 	}
 
 	foundRels := make(map[string]int)
@@ -92,12 +95,33 @@ func TestNavigationFeedHandler(t *testing.T) {
 
 	for rel := range expectedRels {
 		if foundRels[rel] == 0 {
-			t.Errorf("missing expected link rel: %s", rel)
+			t.Errorf("missing expected top-level link rel: %s", rel)
 		}
 	}
 
-	if foundRels["subsection"] < 2 {
-		t.Errorf("expected at least 2 subsection links (Authors, Series), got %d", foundRels["subsection"])
+	// Check for expected entries
+	expectedEntryTitles := map[string]bool{
+		"Authors":      true,
+		"Series":       true,
+		"Tags":         true,
+		"Newest Books": true,
+		"Search":       true,
+	}
+
+	if len(feed.Entries) != 5 {
+		t.Errorf("expected 5 entries, got %d", len(feed.Entries))
+	}
+
+	for _, entry := range feed.Entries {
+		if !expectedEntryTitles[entry.Title] {
+			t.Errorf("unexpected entry title: %s", entry.Title)
+		}
+		if entry.ID == "" || !strings.HasPrefix(entry.ID, "urn:kopds:catalog:") {
+			t.Errorf("invalid entry ID: %s", entry.ID)
+		}
+		if len(entry.Links) == 0 {
+			t.Errorf("missing link in entry: %s", entry.Title)
+		}
 	}
 }
 
@@ -105,9 +129,11 @@ type mockRepo struct {
 	domain.BookRepository
 	listAuthorsFunc  func(ctx context.Context, limit, offset int) ([]domain.AuthorWithCount, int, error)
 	listSeriesFunc   func(ctx context.Context, limit, offset int) ([]domain.SeriesWithCount, int, error)
+	listTagsFunc     func(ctx context.Context, limit, offset int) ([]domain.TagWithCount, int, error)
 	listRecentFunc   func(ctx context.Context, limit, offset int) ([]domain.Book, int, error)
 	listByAuthorFunc func(ctx context.Context, id int64, limit, offset int) ([]domain.Book, int, error)
 	listBySeriesFunc func(ctx context.Context, id int64, limit, offset int) ([]domain.Book, int, error)
+	listByTagFunc    func(ctx context.Context, id int64, limit, offset int) ([]domain.Book, int, error)
 	getByIDFunc      func(ctx context.Context, id int64) (*domain.Book, error)
 	searchFunc       func(ctx context.Context, query string, limit, offset int) ([]domain.Book, int, error)
 }
@@ -122,6 +148,13 @@ func (m *mockRepo) ListAuthors(ctx context.Context, limit, offset int) ([]domain
 func (m *mockRepo) ListSeries(ctx context.Context, limit, offset int) ([]domain.SeriesWithCount, int, error) {
 	if m.listSeriesFunc != nil {
 		return m.listSeriesFunc(ctx, limit, offset)
+	}
+	return nil, 0, nil
+}
+
+func (m *mockRepo) ListTags(ctx context.Context, limit, offset int) ([]domain.TagWithCount, int, error) {
+	if m.listTagsFunc != nil {
+		return m.listTagsFunc(ctx, limit, offset)
 	}
 	return nil, 0, nil
 }
@@ -143,6 +176,13 @@ func (m *mockRepo) ListByAuthor(ctx context.Context, id int64, limit, offset int
 func (m *mockRepo) ListBySeries(ctx context.Context, id int64, limit, offset int) ([]domain.Book, int, error) {
 	if m.listBySeriesFunc != nil {
 		return m.listBySeriesFunc(ctx, id, limit, offset)
+	}
+	return nil, 0, nil
+}
+
+func (m *mockRepo) ListByTag(ctx context.Context, id int64, limit, offset int) ([]domain.Book, int, error) {
+	if m.listByTagFunc != nil {
+		return m.listByTagFunc(ctx, id, limit, offset)
 	}
 	return nil, 0, nil
 }
@@ -274,6 +314,51 @@ func TestSeriesFeedHandler(t *testing.T) {
 
 	if feed.Entries[0].Title != "Series One" {
 		t.Errorf("expected first series 'Series One', got '%s'", feed.Entries[0].Title)
+	}
+}
+
+func TestTagsFeedHandler(t *testing.T) {
+	// Setup
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	repo := &mockRepo{
+		listTagsFunc: func(ctx context.Context, limit, offset int) ([]domain.TagWithCount, int, error) {
+			tags := []domain.TagWithCount{
+				{Tag: domain.Tag{ID: 1, Name: "Tag One"}, BookCount: 3},
+				{Tag: domain.Tag{ID: 2, Name: "Tag Two"}, BookCount: 7},
+			}
+			return tags, 2, nil
+		},
+	}
+	svc := service.NewBookService(repo, linkGen)
+	h := NewHandler(svc, nil, linkGen, nil, "")
+
+	req, _ := http.NewRequest("GET", "/opds/v1.2/tags", nil)
+	rr := httptest.NewRecorder()
+
+	// Execute
+	h.TagsFeedHandler(rr, req)
+
+	// Assert
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var feed opds.Feed
+	err := xml.Unmarshal(rr.Body.Bytes(), &feed)
+	if err != nil {
+		t.Fatalf("failed to unmarshal XML: %v", err)
+	}
+
+	if feed.Title != "Tags" {
+		t.Errorf("expected title 'Tags', got '%s'", feed.Title)
+	}
+
+	if len(feed.Entries) != 2 {
+		t.Errorf("expected 2 entries, got %d", len(feed.Entries))
+	}
+
+	if feed.Entries[0].Title != "Tag One" {
+		t.Errorf("expected first tag 'Tag One', got '%s'", feed.Entries[0].Title)
 	}
 }
 

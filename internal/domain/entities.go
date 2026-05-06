@@ -44,6 +44,12 @@ type Tag struct {
 	Name string `json:"name" db:"name"`
 }
 
+// TagWithCount represents a tag with the number of books that have it.
+type TagWithCount struct {
+	Tag
+	BookCount int `json:"book_count"`
+}
+
 // Series represents a book series.
 type Series struct {
 	ID   int64  `json:"id" db:"id"`

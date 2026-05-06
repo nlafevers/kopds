@@ -50,6 +50,15 @@ func (s *BookService) GetSeries(ctx context.Context, page int) ([]domain.SeriesW
 	return s.repo.ListSeries(ctx, limit, offset)
 }
 
+func (s *BookService) GetTags(ctx context.Context, page int) ([]domain.TagWithCount, int, error) {
+	limit := DefaultPageSize
+	offset := (page - 1) * limit
+	if offset < 0 {
+		offset = 0
+	}
+	return s.repo.ListTags(ctx, limit, offset)
+}
+
 func (s *BookService) GetBooksByAuthor(ctx context.Context, authorID int64, page int) ([]domain.Book, int, error) {
 	limit := DefaultPageSize
 	offset := (page - 1) * limit
@@ -66,6 +75,15 @@ func (s *BookService) GetBooksBySeries(ctx context.Context, seriesID int64, page
 		offset = 0
 	}
 	return s.repo.ListBySeries(ctx, seriesID, limit, offset)
+}
+
+func (s *BookService) GetBooksByTag(ctx context.Context, tagID int64, page int) ([]domain.Book, int, error) {
+	limit := DefaultPageSize
+	offset := (page - 1) * limit
+	if offset < 0 {
+		offset = 0
+	}
+	return s.repo.ListByTag(ctx, tagID, limit, offset)
 }
 
 func (s *BookService) SearchBooks(ctx context.Context, query string, page int) ([]domain.Book, int, error) {
