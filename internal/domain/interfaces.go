@@ -11,6 +11,8 @@ type BookRepository interface {
 	ListBySeries(ctx context.Context, seriesID int64, limit, offset int) ([]Book, int, error)
 	ListAuthors(ctx context.Context, limit, offset int) ([]AuthorWithCount, int, error)
 	ListSeries(ctx context.Context, limit, offset int) ([]SeriesWithCount, int, error)
+	ListTags(ctx context.Context, limit, offset int) ([]TagWithCount, int, error)
+	ListByTag(ctx context.Context, tagID int64, limit, offset int) ([]Book, int, error)
 	Upsert(ctx context.Context, book *Book) error
 	PruneMissingCalibreIDs(ctx context.Context, keepIDs []int64) (int64, error)
 	GetSyncState(ctx context.Context, key string) (string, error)

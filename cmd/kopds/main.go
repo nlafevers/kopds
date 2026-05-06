@@ -203,6 +203,8 @@ func runServer(cfg *config.Config, log zerolog.Logger) {
 		r.Get("/authors/{id}", h.AuthorBooksHandler)
 		r.Get("/series", h.SeriesFeedHandler)
 		r.Get("/series/{id}", h.SeriesBooksHandler)
+		r.Get("/tags", h.TagsFeedHandler)
+		r.Get("/tags/{id}", h.TagBooksHandler)
 		r.Get("/newest", h.NewestFeedHandler)
 		r.Get("/books/{id}", h.BookDetailHandler)
 		r.Get("/search", h.SearchFeedHandler)

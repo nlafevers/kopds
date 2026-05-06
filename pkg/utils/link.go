@@ -60,6 +60,16 @@ func (lg *LinkGenerator) SeriesDetail(id string, page int) string {
 	return lg.buildURL(fmt.Sprintf("/opds/v1.2/series/%s", id), page)
 }
 
+// TagsList returns the URL for the tags list, optionally paginated.
+func (lg *LinkGenerator) TagsList(page int) string {
+	return lg.buildURL("/opds/v1.2/tags", page)
+}
+
+// TagDetail returns the URL for a specific tag's books, optionally paginated.
+func (lg *LinkGenerator) TagDetail(id string, page int) string {
+	return lg.buildURL(fmt.Sprintf("/opds/v1.2/tags/%s", id), page)
+}
+
 // NewestBooks returns the URL for the newest books feed, optionally paginated.
 func (lg *LinkGenerator) NewestBooks(page int) string {
 	return lg.buildURL("/opds/v1.2/newest", page)
