@@ -32,6 +32,9 @@ The easiest way to run KOPDS is via Docker by building the image locally.
         build: .
         container_name: kopds
         restart: unless-stopped
+        read_only: true
+        tmpfs:
+          - /tmp
         ports:
           - "8080:8080"
         volumes:
@@ -42,6 +45,8 @@ The easiest way to run KOPDS is via Docker by building the image locally.
           - KOPDS_LIBRARY_PATH=/library
           - KOPDS_DATABASE_PATH=/data/kopds.db
           - KOPDS_IMAGE_CACHE_PATH=/cache/images
+          - KOPDS_LOG_LEVEL=info
+          - KOPDS_BASE_URL=http://localhost:8080
     ```
 2.  Start the container:
     ```bash
