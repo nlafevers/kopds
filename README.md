@@ -1,174 +1,283 @@
 # KOPDS - Lightweight OPDS Server
 
-KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution System) server designed specifically for self-hosting Calibre libraries. It is engineered for large libraries (10,000+ books) hosted on high-latency network shares (e.g., Nextcloud, SMB, NFS) and is tailored for the KOReader ecosystem.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Go Report Card](https://goreportcard.com/badge/github.com/nlafevers/kopds)](https://goreportcard.com/report/github.com/nlafevers/kopds)
 
-## Why KOPDS?
+KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution System) server designed specifically for self-hosting Calibre libraries. It is optimized for large libraries (10,000+ books) hosted on high-latency network shares (e.g., Nextcloud, SMB, NFS) and is tailored for the KOReader ecosystem.
+
+---
+
+## 📖 Table of Contents
+
+1.  [Why KOPDS?](#-why-kopds)
+2.  [Key Features](#-key-features)
+3.  [Prerequisites](#-prerequisites)
+4.  [Quick Start (Docker)](#-quick-start-docker)
+5.  [Usage with KOReader](#-usage-with-koreader)
+6.  [Native Installation](#-native-installation)
+7.  [Configuration Reference](#-configuration-reference)
+8.  [Advanced Logging](#-advanced-logging)
+9.  [Technical Architecture](#-technical-architecture)
+10. [Security & Deployment](#-security--deployment)
+11. [Troubleshooting](#-troubleshooting)
+12. [License](#-license)
+
+---
+
+## 🚀 Why KOPDS?
 
 While many OPDS servers exist, KOPDS focuses on three core pillars:
 
-1.  **High Performance:** By mirroring your Calibre `metadata.db` to a local, optimized SQLite index, KOPDS provides near-instant search and navigation, even when your library is stored on a slow network share.
-2.  **Resource Efficiency:** Built in pure Go, KOPDS has a minimal memory footprint and compiles to a single, portable binary, making it ideal for low-power devices like Raspberry Pis or home servers.
+1.  **High Performance:** By mirroring your Calibre `metadata.db` to a local, optimized SQLite index, KOPDS provides near-instant search and navigation, even when your library is stored on a slow network share. **Note:** Only metadata and resized thumbnails are mirrored; your book files stay exactly where they are until requested, and then they are transferred directly to KOReader.
+2.  **Resource Efficiency:** Built in pure Go, KOPDS has a minimal memory footprint and compiles to a single, portable binary (~15MB), making it ideal for low-power devices like Raspberry Pis or home servers.
 3.  **KOReader Optimization:** Designed with the specific quirks and requirements of KOReader in mind, ensuring a seamless book discovery and acquisition experience.
 
-## Core Features
+---
+
+## ✨ Key Features
 
 - **OPDS 1.2 Support:** Fully compatible with KOReader and other standard OPDS clients.
 - **Background Synchronization:** Automatically detects changes in your Calibre library and keeps the local index up-to-date without blocking API requests.
 - **Instant Search:** Powered by SQLite FTS5 for rapid, full-text search across titles, authors, tags, and series.
-- **Production-Ready:** Structured logging, multi-user support, and comprehensive test coverage.
-- **Zero-Dependency Architecture:** Minimal external requirements; perfect for containerized deployments.
-- **Clean Architecture Approach:** Domain logic is separated from infrastructure concerns. It features a background scanner that incrementally synchronizes your library, an optimized media delivery pipeline, and a robust API layer for OPDS delivery.
+- **Efficient Image Pipeline:** On-the-fly cover resizing with high-quality Lanczos resampling and an LRU disk cache.
+- **Multi-User Support:** Secure your library with HTTP Basic Authentication and bcrypt-hashed passwords.
+- **Production-Ready:** Structured logging, graceful shutdown, and containerized deployment options.
 
-## Prerequisites
+---
 
-- **Docker** (or Podman) if deploying via container.
-- **Go (1.25+)** if building your own binary.
-- A **reverse proxy** like Nginx, Caddy, or Traefik is **highly recommended**.
+## 📋 Prerequisites
 
-## Getting Started
+Before you begin, ensure your environment meets the following requirements.
 
-The easiest way to run KOPDS is via Docker.  You can either use an image from GitHub Container Registry (if available, check Packages for this repository), or build one locally.  If building locally you'll need to replace `image: ghcr.io/yourusername/kopds:latest` with `build: .` in `docker-compose.yml`.
+### 1. Data Requirements
+- **Calibre Library:** A folder containing your books and the `metadata.db` file.
+- **Storage:** You should have a few hundred MBs (depending on library size) of **local high-speed storage (SSD)** available for the KOPDS index and image cache. Running the KOPDS data directory on an HDD or network share is **not recommended**.
 
-You can also build the binary from source and deploy natively on your host.
+### 2. Software Requirements
 
-### Method 1:
-**Docker deployment using a pre-built image (Recommended)**
+#### If using Docker (Recommended)
+You need Docker and Docker Compose installed. To check if you have them, run:
+```bash
+docker --version
+docker compose version
+```
+*If you don't have them, follow the [official Docker installation guide](https://docs.docker.com/get-docker/).*
 
-1.  Create a project root directory:
-    ```bash
-    mkdir PROJECT_ROOT && cd PROJECT_ROOT
-    ```
-2.  Create a `docker-compose.yml` file in the project root.  Make sure to change the path to your Calibre library.  Make sure to change the KOPDS_BASE_URL to match the IP address or domain name that your Koreader devices use to connect.
-    ```yaml
-    services:
-      kopds:
-        image: ghcr.io/nlafevers/kopds:latest
-        container_name: kopds
-        restart: unless-stopped
-        ports:
-          - "8080:8080"
-        read_only: true
-        tmpfs:
-          - /tmp
-        volumes: # [HOST_PATH:CONTAINER_PATH:OPTIONS]
-          # BIND MOUNT: Users map their existing Calibre library here (Read-Only)
-          - /path/to/your/calibre/library:/library:ro
+#### If installing Natively
+You need the Go compiler (v1.25+). To check your version, run:
+```bash
+go version
+```
+*If you don't have it, download it from [go.dev](https://go.dev/dl/). No C compiler is required as KOPDS uses a pure-Go SQLite driver.*
+
+---
+
+## 🐳 Quick Start (Docker)
+
+The easiest way to run KOPDS is via Docker. This method ensures all dependencies are handled and simplifies updates.
+
+### 1. Prepare Your Environment
+Create a directory for KOPDS and move into it:
+```bash
+mkdir ~/kopds && cd ~/kopds
+```
+
+### 2. Create Docker Compose File
+Create a file named `docker-compose.yml` and paste the following content. **Make sure to edit the host path to your Calibre library and `KOPDS_BASE_URL`.**
+
+```yaml
+services:
+  kopds:
+    image: ghcr.io/nlafevers/kopds:latest
+    container_name: kopds
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      # Path to your Calibre library (keep this read-only)
+      - /path/to/your/calibre/library:/library:ro # [HOST_DIR:CONTAINER_DIR:OPTIONS]
       
-          # NAMED VOLUMES: Docker manages these automatically. No permission issues.
-          - kopds_data:/data
-          - kopds_cache:/cache
-        environment:
-          - KOPDS_LIBRARY_PATH=/library
-          - KOPDS_DATABASE_PATH=/data/kopds.db
-          - KOPDS_IMAGE_CACHE_PATH=/cache/images
-          - KOPDS_LOG_LEVEL=info
-          - KOPDS_PORT=8080
-          - KOPDS_BASE_URL=http://DOMAIN_NAME:8080
+      # Persistence for KOPDS index and cache (should be on local SSD)
+      - kopds_data:/data
+      - kopds_cache:/cache
+    environment:
+      - KOPDS_LIBRARY_PATH=/library
+      - KOPDS_DATABASE_PATH=/data/kopds.db
+      - KOPDS_IMAGE_CACHE_PATH=/cache/images
+      - KOPDS_BASE_URL=http://your-server-ip:8080 # Change to your IP/Domain
+      - KOPDS_LOG_LEVEL=info
+      - KOPDS_PORT=8080
+      - KOPDS_JSON_LOG=true # Recommended for Docker
 
-      # You must declare named volumes at the bottom of the file
-      volumes:
-        kopds_data:
-        kopds_cache:
-    ```
-3.  Start the container:
-    ```bash
-    docker compose up -d
-    ```
-4.  Create your initial admin user:
-    ```bash
-    printf '%s\n' 'yourpassword' | docker exec -i kopds ./kopds create-user admin --password-stdin
-    ```
-    To avoid exposing passwords to shell history or process listings, the create-user UX uses a hidden terminal prompt for inputting the password.  However, to allow Docker automation `--password-stdin` is an option.
+volumes:
+  kopds_data:
+  kopds_cache:
+```
 
-### Method 2:
-**Docker deployment using a locally built image**
+### 3. Launch KOPDS
+Start the server in the background:
+```bash
+docker compose up -d
+```
 
-1.  Download the latest release (and extract it), or clone the repository (from the latest tag):
-    ```bash
-    curl -s https://api.github.com/repos/nlafevers/kopds/releases/latest \
-    | grep "tarball_url" \
-    | cut -d : -f 2,3 \
-    | tr -d \" \
-    | xargs curl -L -o kopds-latest.tar.gz && mkdir kopds && \
-    tar -xzf kopds-latest.tar.gz -C kopds --strip-components=1
-    ```
-    or
-    
-    ```bash
-    wget -qO- https://api.github.com/repos/nlafevers/kopds/releases/latest \
-    | grep tarball_url \
-    | cut -d '"' -f 4 \
-    | xargs wget -O kopds.tar.gz && mkdir kopds && \
-    tar -xzf kopds.tar.gz -C kopds --strip-components=1
-    ```
-    or
-    ```bash
-    git clone --depth 1 --branch $(curl -s https://api.github.com/repos/nlafevers/kopds/releases/latest | grep "tag_name" | cut -d '"' -f 4) https://github.com/nlafevers/kopds.git
-    ```
-2.  Change to the project directory `cd $(ls -td kopds* | head -n 1)` and create a `docker-compose.yml` file.  Make sure to change the path to your Calibre library.  Make sure to change the KOPDS_BASE_URL to match the IP address or domain name that your Koreader devices use to connect.
-    ```yaml
-    services:
-      kopds:
-        build: .
-        container_name: kopds
-        restart: unless-stopped
-        ports:
-          - "8080:8080"
-        read_only: true
-        tmpfs:
-          - /tmp
-        volumes: # [HOST_PATH:CONTAINER_PATH:OPTIONS]
-          # BIND MOUNT: Users map their existing Calibre library here (Read-Only)
-          - /path/to/your/calibre/library:/library:ro
-      
-          # NAMED VOLUMES: Docker manages these automatically. No permission issues.
-          - kopds_data:/data
-          - kopds_cache:/cache
-        environment:
-          - KOPDS_LIBRARY_PATH=/library
-          - KOPDS_DATABASE_PATH=/data/kopds.db
-          - KOPDS_IMAGE_CACHE_PATH=/cache/images
-          - KOPDS_LOG_LEVEL=info
-          - KOPDS_PORT=8080
-          - KOPDS_BASE_URL=http://DOMAIN_NAME:8080
+### 4. Create Your Admin User
+KOPDS requires authentication. Create your first user with the following command:
+```bash
+docker exec -it kopds ./kopds create-user admin
+```
+Follow the prompts to set a secure password.
 
-      # You must declare named volumes at the bottom of the file
-      volumes:
-        kopds_data:
-        kopds_cache:
-3.  Start the container and create an admin user as in Steps 3 and 4 above.
+> [!TIP]
+> For automation, you can use the `--password-stdin` flag:
+> `echo "mypassword" | docker exec -i kopds ./kopds create-user admin --password-stdin`
 
-### Method 3:
-**Host-based deployment using a stand-alone binary**
+---
 
-1.  Download the source code as in Method 2: Step 1.
-2.  Go to the project directory:
-    ```bash
-    cd $(ls -td kopds* | head -n 1)
-    ```
-3.  Build the binary:
-    ```bash
-    go build -o kopds ./cmd/kopds
-    ```
-4.  Configure `config.yaml`  (make sure to change the path to your Calibre library).
-5.  Create your admin user:
-    ```bash
-    ./kopds create-user admin
-    ```
-6.  Run the server:
-    ```bash
-    ./kopds
-    ```
+## 📱 Usage with KOReader
 
-## Deployment Guidelines
+1.  Open **KOReader**.
+2.  Tap the top menu and select the **Search** icon (magnifying glass).
+3.  Select **OPDS catalog** -> **Add new catalog**.
+4.  Enter a name (e.g., "Home Library").
+5.  Enter the URL: `http://your-server-ip:8080/opds/v1.2/catalog`
+6.  Enter the **Username** and **Password** you created in Quick Start - Step 4.
+7.  Save.
+8.  Tap your new catalog to browse and download your books!
 
-### Security & Reverse Proxy
+---
 
-KOPDS uses **HTTP Basic Authentication** for simplicity and compatibility with KOReader. Since Basic Auth transmits credentials in plain text, you **should** deploy KOPDS behind a reverse proxy (e.g., Caddy, Nginx, Traefik) that provides **HTTPS**.
+## 🛠 Native Installation
+
+For users who prefer running KOPDS without Docker.
+
+### 1. Build from Source
+```bash
+git clone https://github.com/nlafevers/kopds.git
+```
+or, to download only the latest branch without the entire commit history
+```bash
+git clone --depth 1 --branch $(curl -s https://api.github.com/repos/nlafevers/kopds/releases/latest | grep "tag_name" | cut -d '"' -f 4) https://github.com/nlafevers/kopds.git
+```
+then
+```bash
+cd kopds
+go build -o kopds ./cmd/kopds
+```
+
+### 2. Configure
+KOPDS can be configured via environment variables or a `config.yaml` file in the same directory (or a `./config` subdirectory). 
+
+> [!NOTE]
+> Environment variables always take precedence over settings in `config.yaml`. In Docker, environment variables are the standard way to configure the container, but you can also mount a `config.yaml` to `/app/config.yaml` if you prefer.
+
+```bash
+# Set required environment variables
+export KOPDS_LIBRARY_PATH=/path/to/calibre
+./kopds create-user admin
+./kopds
+```
+
+---
+
+## ⚙️ Configuration Reference
+
+All settings can be provided as environment variables (prefixed with `KOPDS_`) or in a `config.yaml` file.
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `KOPDS_LIBRARY_PATH` | **Required.** Path to your Calibre library folder. | - |
+| `KOPDS_DATABASE_PATH` | Path where the local SQLite index will be stored. | `kopds.db` |
+| `KOPDS_BASE_URL` | The external URL used for generating OPDS links. | `http://your-server-ip:8080` |
+| `KOPDS_PORT` | The port the server listens on. | `8080` |
+| `KOPDS_LOG_LEVEL` | Logging verbosity (`debug`, `info`, `warn`, `error`). | `info` |
+| `KOPDS_JSON_LOG` | Enable structured JSON logging (best for ELK/Loki). | `false` |
+| `KOPDS_SYNC_INTERVAL` | How often to scan Calibre for changes (e.g., `1h`, `30m`). | `30m` |
+| `KOPDS_IMAGE_CACHE_PATH` | Directory for resized cover thumbnails. | `cache/images` |
+| `KOPDS_IMAGE_CACHE_MAX_COUNT` | Maximum number of images to keep in cache. | `1000` |
+
+---
+
+## 📊 Advanced Logging
+
+KOPDS uses structured logging via `zerolog` to provide clear and actionable insights into the server's operation.
+
+### Log Formats
+- **Human-Readable (Default):** Optimized for terminal viewing with colors and formatted timestamps. Best for local development and native deployments.
+- **JSON:** Structured output that is easy to parse by log aggregators like **Promtail/Loki**, **Elasticsearch**, or **CloudWatch**. Enable this with `KOPDS_JSON_LOG=true`.
+
+### Log Levels
+You can adjust the verbosity of the logs using the `KOPDS_LOG_LEVEL` setting:
+
+- **`debug`:** Use this when troubleshooting. It provides granular details about the background scanner (e.g., which books are being indexed) and internal routing.
+- **`info`:** The recommended level for production. Reports server startup, synchronization batches, and incoming requests.
+- **`warn`:** Only logs non-critical issues, such as failed cover resizing for a specific book or minor synchronization skips.
+- **`error`:** Only logs critical failures that require attention, such as database connection issues or inability to access the library share.
+
+---
+
+## 🏗 Technical Architecture
+
+KOPDS is designed for speed and reliability, especially in home lab environments where libraries are often stored on network-attached storage (NAS).
+
+### Hybrid Database Strategy
+Calibre's `metadata.db` is a complex SQLite database that isn't optimized for OPDS serving and can be slow over network shares.
+- KOPDS treats `metadata.db` as a **read-only source of truth**.
+- It maintains a **local SQLite index** using FTS5 for blazing-fast search.
+- **This does NOT mirror your entire library.** Only the metadata (titles, authors, etc.) is copied to the local index. Your actual EPUB/PDF files are streamed directly from the source library only when you click "Download."
+
+### Background Incremental Sync
+The scanner engine uses a multi-tier change detection system:
+1.  **File Stats:** Checks the modification time and size of `metadata.db`.
+2.  **Timestamp Comparison:** If the file changed, it compares the `last_modified` timestamps of individual books to perform an incremental update, rather than a full re-index.
+3.  **Pruning:** Automatically removes books from the local index that have been deleted from Calibre.
+
+### Optimized Image Pipeline
+To ensure cover thumbnails load instantly on e-ink devices:
+- **Resizing:** Uses the `disintegration/imaging` library with Lanczos resampling for high-quality, sharp thumbnails.
+- **Caching:** Implements a disk-based LRU (Least Recently Used) cache. Once a cover is resized, it's served instantly from the local SSD for subsequent requests. This prevents the server from having to read large image files across the network more than once.
+- **Security:** Bounds image dimensions and input sizes to prevent DoS attacks.
+
+---
+
+## 🔒 Security & Deployment
+
+### Reverse Proxy (Recommended)
+KOPDS uses **HTTP Basic Authentication**. While simple and widely compatible, it transmits credentials in plain text. **You should always deploy KOPDS behind a reverse proxy** (like Caddy, Nginx, or Traefik) that provides **HTTPS**.
+
+**Example Caddyfile:**
+```caddy
+kopds.example.com {
+    reverse_proxy localhost:8080
+}
+```
 
 ### Storage Performance
+For the best experience:
+- **Calibre Library:** Can be on a slow HDD or network share (SMB/NFS).
+- **KOPDS Data/Cache:** **Must** be on local high-speed storage (SSD/NVMe). This ensures the SQLite index and image cache are highly responsive.
 
-For optimal performance, ensure the `data` directory (which holds the SQLite index) is stored on **local high-speed storage** (SSD/NVMe). While your Calibre library can reside on a high-latency network share (SMB/NFS), the KOPDS index database must be on local storage to prevent SQLite locking issues and ensure rapid response times.
+---
 
-## License
-GPL-3.0 license
+## ❓ Troubleshooting
+
+### "Unauthorized" error in KOReader
+- Double-check your username and password.
+- Ensure your `KOPDS_BASE_URL` is set correctly. If it doesn't match the URL you're using to access the server, some links might be broken.
+
+### Books are not showing up
+- Check the logs: `docker logs kopds`.
+- Ensure `KOPDS_LIBRARY_PATH` points to a folder containing `metadata.db`.
+- KOPDS might still be performing the initial scan. Large libraries can take a few minutes to index the first time.
+
+### Covers are missing
+- Calibre stores covers in book directories as `cover.jpg`. Ensure these files exist and are readable by KOPDS.
+- Check that the `cache` directory is writable.
+
+---
+
+## 📜 License
+
+KOPDS is released under the **GPL-3.0 License**. See the [LICENSE](LICENSE) file for details.

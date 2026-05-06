@@ -1,4 +1,4 @@
-library_path: .calibre
+library_path: /path/to/your/calibre/library
 database_path: ./data/kopds.db
 port: 8080
 log_level: debug
