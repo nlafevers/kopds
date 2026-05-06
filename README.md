@@ -22,7 +22,7 @@ While many OPDS servers exist, KOPDS focuses on three core pillars:
 ## Prerequisites
 
 - **Docker** (or Podman) if deploying via container.
-- **Go (1.22+)** if building your own binary.
+- **Go (1.25+)** if building your own binary.
 - A **reverse proxy** like Nginx, Caddy, or Traefik is **highly recommended**.
 
 ## Getting Started
