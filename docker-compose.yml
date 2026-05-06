@@ -9,7 +9,7 @@ services:
     tmpfs:
       - /tmp
     volumes:
-      # Mount your Calibre library (Read-Only)
+      # Mount your Calibre library (read only) [HOST_DIR:CONTAINER_DIR:OPTIONS]
       - /path/to/your/calibre/library:/library:ro
       # Mount a local directory for the KOPDS index and user database
       - ./data:/data
