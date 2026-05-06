@@ -20,9 +20,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o kopds ./cmd/kopds
 # Run stage
 FROM alpine:3.22
 
-# Add CA certificates for HTTPS requests if needed
+# Add CA certificates for HTTPS requests if needed and tzdata
 RUN apk add --no-cache ca-certificates tzdata
 
+# Create a non-root user
 RUN addgroup -S kopds && adduser -S -D -H -h /app -G kopds kopds
 
 WORKDIR /app
