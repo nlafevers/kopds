@@ -23,13 +23,13 @@ While many OPDS servers exist, KOPDS focuses on three core pillars:
 
 ### Docker (Recommended)
 
-The easiest way to run KOPDS is via Docker.
+The easiest way to run KOPDS is via Docker by building the image locally.
 
-1.  Create a `docker-compose.yml` file:
+1.  Create a `docker-compose.yml` file in the project root:
     ```yaml
     services:
       kopds:
-        image: nlafevers/kopds:latest # or build: .
+        build: .
         container_name: kopds
         restart: unless-stopped
         ports:
