@@ -105,11 +105,10 @@ func TestNavigationFeedHandler(t *testing.T) {
 		"Series":       true,
 		"Tags":         true,
 		"Newest Books": true,
-		"Search":       true,
 	}
 
-	if len(feed.Entries) != 5 {
-		t.Errorf("expected 5 entries, got %d", len(feed.Entries))
+	if len(feed.Entries) != 4 {
+		t.Errorf("expected 4 entries, got %d", len(feed.Entries))
 	}
 
 	for _, entry := range feed.Entries {
