@@ -106,13 +106,6 @@ func (h *Handler) NavigationFeedHandler(w http.ResponseWriter, r *http.Request) 
 			href:    h.LinkGenerator.NewestBooks(0),
 			summary: "Recently added books",
 		},
-		{
-			title:   "Search",
-			id:      "urn:kopds:catalog:search",
-			rel:     "search",
-			href:    h.LinkGenerator.OpenSearchDescriptor(),
-			summary: "Search the catalog",
-		},
 	}
 
 	for _, e := range navItems {
@@ -132,9 +125,6 @@ func (h *Handler) NavigationFeedHandler(w http.ResponseWriter, r *http.Request) 
 				},
 			},
 		}
-		if e.title == "Search" {
-			entry.Links[0].Type = "application/opensearchdescription+xml"
-		}
 		feed.Entries = append(feed.Entries, entry)
 	}
 
@@ -145,6 +135,15 @@ func (h *Handler) NavigationFeedHandler(w http.ResponseWriter, r *http.Request) 
 	if err := xml.NewEncoder(w).Encode(feed); err != nil {
 		http.Error(w, "Failed to encode feed", http.StatusInternalServerError)
 	}
+}
+
+func (h *Handler) addSearchLink(feed *opds.Feed) {
+	feed.Links = append(feed.Links, opds.Link{
+		Rel:   "search",
+		Type:  "application/opensearchdescription+xml",
+		Href:  h.LinkGenerator.OpenSearchDescriptor(),
+		Title: "Search KOPDS",
+	})
 }
 
 // AuthorsFeedHandler returns a paginated list of authors in the OPDS catalog.
@@ -159,6 +158,7 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 	lastPage := calculateLastPage(total)
 	links := h.generatePaginationLinks(h.LinkGenerator.AuthorsList, page, lastPage, "Authors")
 	feed := opds.NewFeed("Authors", "authors-list", links)
+	h.addSearchLink(&feed)
 
 	for _, author := range authors {
 		summary := fmt.Sprintf("%d books", author.BookCount)
@@ -195,6 +195,7 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 	lastPage := calculateLastPage(total)
 	links := h.generatePaginationLinks(h.LinkGenerator.SeriesList, page, lastPage, "Series")
 	feed := opds.NewFeed("Series", "series-list", links)
+	h.addSearchLink(&feed)
 
 	for _, s := range series {
 		summary := fmt.Sprintf("%d books", s.BookCount)
@@ -231,6 +232,7 @@ func (h *Handler) TagsFeedHandler(w http.ResponseWriter, r *http.Request) {
 	lastPage := calculateLastPage(total)
 	links := h.generatePaginationLinks(h.LinkGenerator.TagsList, page, lastPage, "Tags")
 	feed := opds.NewFeed("Tags", "tags-list", links)
+	h.addSearchLink(&feed)
 
 	for _, t := range tags {
 		summary := fmt.Sprintf("%d books", t.BookCount)
@@ -267,6 +269,7 @@ func (h *Handler) NewestFeedHandler(w http.ResponseWriter, r *http.Request) {
 	lastPage := calculateLastPage(total)
 	links := h.generatePaginationLinks(h.LinkGenerator.NewestBooks, page, lastPage, "Newest Books")
 	feed := opds.NewFeed("Newest Books", "newest-list", links)
+	h.addSearchLink(&feed)
 
 	h.appendBookEntries(&feed, books)
 	h.sendFeed(w, feed)
