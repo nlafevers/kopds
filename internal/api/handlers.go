@@ -156,7 +156,8 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	links := h.generatePaginationLinks(h.LinkGenerator.AuthorsList, page, total, "Authors")
+	lastPage := calculateLastPage(total)
+	links := h.generatePaginationLinks(h.LinkGenerator.AuthorsList, page, lastPage, "Authors")
 	feed := opds.NewFeed("Authors", "authors-list", links)
 
 	for _, author := range authors {
@@ -191,7 +192,8 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	links := h.generatePaginationLinks(h.LinkGenerator.SeriesList, page, total, "Series")
+	lastPage := calculateLastPage(total)
+	links := h.generatePaginationLinks(h.LinkGenerator.SeriesList, page, lastPage, "Series")
 	feed := opds.NewFeed("Series", "series-list", links)
 
 	for _, s := range series {
@@ -226,7 +228,8 @@ func (h *Handler) TagsFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	links := h.generatePaginationLinks(h.LinkGenerator.TagsList, page, total, "Tags")
+	lastPage := calculateLastPage(total)
+	links := h.generatePaginationLinks(h.LinkGenerator.TagsList, page, lastPage, "Tags")
 	feed := opds.NewFeed("Tags", "tags-list", links)
 
 	for _, t := range tags {
@@ -261,7 +264,8 @@ func (h *Handler) NewestFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	links := h.generatePaginationLinks(h.LinkGenerator.NewestBooks, page, total, "Newest Books")
+	lastPage := calculateLastPage(total)
+	links := h.generatePaginationLinks(h.LinkGenerator.NewestBooks, page, lastPage, "Newest Books")
 	feed := opds.NewFeed("Newest Books", "newest-list", links)
 
 	h.appendBookEntries(&feed, books)
@@ -280,8 +284,9 @@ func (h *Handler) AuthorBooksHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lastPage := calculateLastPage(total)
 	linkFunc := func(p int) string { return h.LinkGenerator.AuthorDetail(idStr, p) }
-	links := h.generatePaginationLinks(linkFunc, page, total, "Books by Author")
+	links := h.generatePaginationLinks(linkFunc, page, lastPage, "Books by Author")
 	feed := opds.NewFeed("Books by Author", "author-books-"+idStr, links)
 
 	h.appendBookEntries(&feed, books)
@@ -300,8 +305,9 @@ func (h *Handler) SeriesBooksHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lastPage := calculateLastPage(total)
 	linkFunc := func(p int) string { return h.LinkGenerator.SeriesDetail(idStr, p) }
-	links := h.generatePaginationLinks(linkFunc, page, total, "Books in Series")
+	links := h.generatePaginationLinks(linkFunc, page, lastPage, "Books in Series")
 	feed := opds.NewFeed("Books in Series", "series-books-"+idStr, links)
 
 	h.appendBookEntries(&feed, books)
@@ -320,8 +326,9 @@ func (h *Handler) TagBooksHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lastPage := calculateLastPage(total)
 	linkFunc := func(p int) string { return h.LinkGenerator.TagDetail(idStr, p) }
-	links := h.generatePaginationLinks(linkFunc, page, total, "Books with Tag")
+	links := h.generatePaginationLinks(linkFunc, page, lastPage, "Books with Tag")
 	feed := opds.NewFeed("Books with Tag", "tag-books-"+idStr, links)
 
 	h.appendBookEntries(&feed, books)
@@ -373,10 +380,11 @@ func (h *Handler) SearchFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lastPage := calculateLastPage(total)
 	linkFunc := func(p int) string {
 		return addQueryParam(h.LinkGenerator.Search(p), "q", query)
 	}
-	links := h.generatePaginationLinks(linkFunc, page, total, "Search Results")
+	links := h.generatePaginationLinks(linkFunc, page, lastPage, "Search Results")
 	feed := opds.NewFeed("Search Results: "+query, "search-results", links)
 
 	h.appendBookEntries(&feed, books)
@@ -595,15 +603,13 @@ func calculateLastPage(total int) int {
 	return lastPage
 }
 
-func (h *Handler) generatePaginationLinks(linkFunc func(int) string, page, total int, title string) []opds.Link {
-	lastPage := calculateLastPage(total)
+func (h *Handler) generatePaginationLinks(linkFunc func(int) string, page, lastPage int, title string) []opds.Link {
 	links := []opds.Link{
 		{
 			Rel:   "self",
 			Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
 			Href:  linkFunc(page),
 			Title: title,
-			Count: total,
 		},
 		{
 			Rel:   "first",
