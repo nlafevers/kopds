@@ -93,6 +93,7 @@ The other hardware requirements are potato-tier.  See recommended below:
 | Network       | 1+ Mbps                      | 1+ Mbps                      |	< 1 Mbps      | 1+ Mbps       |
 
 *Assumes rclone is used to mount remote storage. A swap file is highly recommended to prevent Out-of-Memory (OOM) crashes during initial directory scans.
+
 †1 GB will likely not be sufficient if you intend to build your own Docker image locally
 
 ---
