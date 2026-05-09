@@ -36,12 +36,15 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
+          go mod download
           BINARY_NAME="kopds-${{ matrix.goos }}-${{ matrix.goarch }}"
           if [ "${{ matrix.goos }}" = "windows" ]; then
             BINARY_NAME="$BINARY_NAME.exe"
           fi
+          mkdir -p dist
+          # Using "." instead of "main.go" solves the module lookup error
           # -s -w flags reduce binary size by stripping debug info
-          go build -ldflags="-s -w" -o "dist/$BINARY_NAME" main.go
+          go build -ldflags="-s -w" -o "dist/$BINARY_NAME" .
 
       - name: Upload Artifacts (Internal)
         uses: actions/upload-artifact@v4
