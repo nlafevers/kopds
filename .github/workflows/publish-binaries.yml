@@ -36,15 +36,19 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
+          # 1. Download dependencies from the root (where go.mod is)
           go mod download
+          
           BINARY_NAME="kopds-${{ matrix.goos }}-${{ matrix.goarch }}"
           if [ "${{ matrix.goos }}" = "windows" ]; then
             BINARY_NAME="$BINARY_NAME.exe"
           fi
+          
+          # 2. Create the output directory
           mkdir -p dist
-          # Using "." instead of "main.go" solves the module lookup error
-          # -s -w flags reduce binary size by stripping debug info
-          go build -ldflags="-s -w" -o "dist/$BINARY_NAME" .
+          
+          # 3. Build pointing to the SUBDIRECTORY path
+          go build -ldflags="-s -w" -o "dist/$BINARY_NAME" ./cmd/kopds
 
       - name: Upload Artifacts (Internal)
         uses: actions/upload-artifact@v4
