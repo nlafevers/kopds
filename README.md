@@ -28,9 +28,9 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 
 While many OPDS servers exist, KOPDS focuses on three core pillars:
 
-1.  **High Performance:** By mirroring your Calibre `metadata.db` to a local, optimized SQLite index, KOPDS provides near-instant search and navigation, even when your library is stored on a slow network share. **Note:** Only metadata and resized thumbnails are mirrored; your book files stay exactly where they are until requested, and then they are transferred directly to KOReader.
-2.  **Resource Efficiency:** Built in pure Go, KOPDS has a minimal memory footprint and compiles to a single, portable binary (~15MB), making it ideal for low-power devices like Raspberry Pis or home servers.
-3.  **KOReader Optimization:** Designed with the specific quirks and requirements of KOReader in mind, ensuring a seamless book discovery and acquisition experience.
+1.  **High Performance:** By mirroring your Calibre `metadata.db` to a local, optimized SQLite index, KOPDS provides near-instant search and navigation, even when your library is stored on a slow network share. **Note:** Only metadata and resized thumbnails are mirrored; your book files stay exactly where they are until requested.
+2.  **Resource Efficiency:** Built in pure Go, KOPDS has a minimal memory footprint and compiles to a single, portable binary (~15MB), making it ideal for low-power devices like Raspberry Pis, home servers, or free-tier cloud VMs.
+3.  **KOReader Optimization:** Designed with the specific requirements of KOReader in mind, ensuring a seamless book discovery and acquisition experience.
 
 ---
 
@@ -70,6 +70,31 @@ go version
 ```
 *If you don't have it, download it from [go.dev](https://go.dev/dl/). No C compiler is required as KOPDS uses a pure-Go SQLite driver.*
 
+#### Reverse Proxy
+While KOPDS itself uses HTTP Basic Authentication according to the OPDS 1.2 spec, for security reasons you should place it behind a reverse proxy.  Caddy is recommended to keep a pure-Go environment.  Additionally, other services you might want to run off the same server might need HTTPS, such as the KOReader sync server.
+> [!NOTE]
+> A reverse proxy alone does not make your server completely secure.  You are responsible for properly configuring your server to meet your security needs.
+
+#### Cloud/Remote Calibre Library Synchronization
+KOPDS is designed for serving a remote Calibre library efficiently, but you will need a way to sync the remote library to the machine running KOPDS.  Rclone is recommended over davfs2 due to better stability, and more graceful handling of network blips.  Rclone also offers finer control allowing you to throttle the connection if needed to avoid overwhelming a resource constrained server during the initial library metadata scan.  Rclone is also written in Go, maintaining a pure Go environment.
+
+### 3. Hardware Requirements
+
+One reason to prefer deploying natively with a Go binary is to minimize resource usage in constrained server setups.  A free-tier GCP e2-micro VM only has 1 GB of memory, and early Raspberry Pi's have even less.  Even if the overhead consumed by Docker is as low as often claimed 100-200 MB (and not closer 300-400 MB), that is still a significant proportion of your available RAM on a micro cloud VM or early-generation Raspberry Pi.  The Go binary running natively should consume only a tenth of that (10-20 MB).  Running your entire stack natively, if using Caddy (20-30 MB) and Rclone (20-40 MB), would consume less RAM than the Docker overhead by itself.
+
+The other hardware requirements are potato-tier.  See recommended below:
+
+| Specification | Native Dual (kopds + kosync) | Docker Dual (kopds + kosync) | Native kosync | Native kopds |
+| :-----------: | :--------------------------: | :--------------------------: | :----------:  | :----------: |
+| CPU           | 1 Core (1.0 GHz)             | 1 Core (1.0 GHz)    | 1 Core (Any speed) | 1 Core (1.0 GHz) |
+| RAM (Idle)    | ~100 MB                      | ~350 MB                      | < 15 MB       | ~90 MB        |
+| RAM (Minimum) | 512 MB*                      | 1 GB*<sup>†</sup>            | 64 MB         | 512 MB*       |
+| Storage Space | ~250 MB                      | ~1.5 GB                      | ~25 MB        | ~200 MB       |
+| Network       | 1+ Mbps                      | 1+ Mbps                      |	< 1 Mbps      | 1+ Mbps       |
+
+*Assumes rclone is used to mount remote storage. A swap file is highly recommended to prevent Out-of-Memory (OOM) crashes during initial directory scans.
+†1 GB will likely not be sufficient if you intend to build your own Docker image locally
+
 ---
 
 ## 🐳 Quick Start (Docker)
@@ -88,7 +113,7 @@ Create a file named `docker-compose.yml` and paste the following content. **Make
 ```yaml
 services:
   kopds:
-    image: ghcr.io/nlafevers/kopds:latest
+    image: ghcr.io/nlafevers/kopds:latest # or build: .
     container_name: kopds
     restart: unless-stopped
     ports:
@@ -99,7 +124,7 @@ services:
     volumes:
       # Path to your Calibre library (keep this read-only)
       - /path/to/your/calibre/library:/library:ro # [HOST_DIR:CONTAINER_DIR:OPTIONS]
-      
+
       # Persistence for KOPDS index and cache (should be on local SSD)
       - kopds_data:/data
       - kopds_cache:/cache
@@ -146,6 +171,8 @@ Follow the prompts to set a secure password.
 6.  Enter the **Username** and **Password** you created in Quick Start - Step 4.
 7.  Save.
 8.  Tap your new catalog to browse and download your books!
+> [!NOTE]
+> For large libraries it is possible your sub-menus (for Authors, Series, Tags) will extend to more than 3 or 4 pages.  A limitation of OPDS is that only the first few pages are loaded, so the total page count displayed in KOReader is not necessarily accurate when you first enter a sub-menu.  Additionally, if you navigate to the last page (>>), when the page count is not correct, you will stall there, and need to paginate backwards (<) then forwards (>) to access the later menu pages.
 
 ---
 
@@ -253,11 +280,13 @@ kopds.example.com {
     reverse_proxy localhost:8080
 }
 ```
+> [!NOTE]
+> A reverse proxy alone does not make your server completely secure.  You are responsible for properly configuring your server to meet your security needs.
 
 ### Storage Performance
 For the best experience:
 - **Calibre Library:** Can be on a slow HDD or network share (SMB/NFS).
-- **KOPDS Data/Cache:** **Must** be on local high-speed storage (SSD/NVMe). This ensures the SQLite index and image cache are highly responsive.
+- **KOPDS Data/Cache:** **Should** be on local high-speed storage (SSD/NVMe). This ensures the SQLite index and image cache are highly responsive.
 
 ---
 
@@ -275,6 +304,12 @@ For the best experience:
 ### Covers are missing
 - Calibre stores covers in book directories as `cover.jpg`. Ensure these files exist and are readable by KOPDS.
 - Check that the `cache` directory is writable.
+
+### 404 error when you attempt to download a book
+- Double-check that your remote library is still mounted.  The OPDS server will feed a list of books from its own SQLite database, so it will appear as if there are books available, but when you try to download one you will get a 404 error if the library is not still mounted.
+
+### Client tries to download a directory instead of a book
+- This can happen if you give KOReader login credentials without actually creating a username and password on the KOPDS server.
 
 ---
 
