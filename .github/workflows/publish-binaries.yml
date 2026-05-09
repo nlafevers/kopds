@@ -1,0 +1,76 @@
+name: Publish Binaries
+
+on:
+  release:
+    types: [published, prereleased]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux AMD64 (Standard Desktop/Server)
+          - goos: linux
+            goarch: amd64
+          # Linux ARM64 (Raspberry Pi 4/5, AWS Graviton)
+          - goos: linux
+            goarch: arm64
+          # Windows AMD64
+          - goos: windows
+            goarch: amd64
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0' # Match your local Go version
+
+      - name: Build Binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          BINARY_NAME="kopds-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            BINARY_NAME="$BINARY_NAME.exe"
+          fi
+          # -s -w flags reduce binary size by stripping debug info
+          go build -ldflags="-s -w" -o "dist/$BINARY_NAME" main.go
+
+      - name: Upload Artifacts (Internal)
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+
+  update_release:
+    name: Update Release Assets
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Crucial for uploading to releases
+    steps:
+      - name: Download All Binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate Checksums
+        run: |
+          cd artifacts
+          sha256sum * > checksums.txt
+
+      - name: Upload to Existing Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Automatically targets the release that triggered the workflow
+          files: |
+            artifacts/*
+          tag_name: ${{ github.event.release.tag_name }}
