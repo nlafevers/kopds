@@ -505,12 +505,14 @@ func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	filePath, err := safeLibraryPath(h.LibraryPath, book.Path, fileName)
 	if err != nil {
+		fmt.Printf("Error: safeLibraryPath failed for book ID %d, path %s, fileName %s: %v\n", id, book.Path, fileName, err)
 		http.NotFound(w, r)
 		return
 	}
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		fmt.Printf("Error: File not found on disk at %s for book ID %d\n", filePath, id)
 		http.Error(w, "File not found on disk", http.StatusNotFound)
 		return
 	}
