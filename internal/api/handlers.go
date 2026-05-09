@@ -170,11 +170,10 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 			},
 			Links: []opds.Link{
 				{
-					Rel:         "subsection",
-					Type:        "application/atom+xml;profile=opds-catalog;kind=navigation",
-					Href:        h.LinkGenerator.AuthorDetail(strconv.FormatInt(author.ID, 10), 0),
-					Title:       author.Name,
-					ThreadCount: author.BookCount,
+					Rel:   "subsection",
+					Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+					Href:  h.LinkGenerator.AuthorDetail(strconv.FormatInt(author.ID, 10), 0),
+					Title: author.Name,
 				},
 			},
 		}
@@ -208,11 +207,10 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 			},
 			Links: []opds.Link{
 				{
-					Rel:         "subsection",
-					Type:        "application/atom+xml;profile=opds-catalog;kind=navigation",
-					Href:        h.LinkGenerator.SeriesDetail(strconv.FormatInt(s.ID, 10), 0),
-					Title:       s.Name,
-					ThreadCount: s.BookCount,
+					Rel:   "subsection",
+					Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+					Href:  h.LinkGenerator.SeriesDetail(strconv.FormatInt(s.ID, 10), 0),
+					Title: s.Name,
 				},
 			},
 		}
@@ -246,11 +244,10 @@ func (h *Handler) TagsFeedHandler(w http.ResponseWriter, r *http.Request) {
 			},
 			Links: []opds.Link{
 				{
-					Rel:         "subsection",
-					Type:        "application/atom+xml;profile=opds-catalog;kind=navigation",
-					Href:        h.LinkGenerator.TagDetail(strconv.FormatInt(t.ID, 10), 0),
-					Title:       t.Name,
-					ThreadCount: t.BookCount,
+					Rel:   "subsection",
+					Type:  "application/atom+xml;profile=opds-catalog;kind=navigation",
+					Href:  h.LinkGenerator.TagDetail(strconv.FormatInt(t.ID, 10), 0),
+					Title: t.Name,
 				},
 			},
 		}
