@@ -53,36 +53,41 @@ While many OPDS servers exist, KOPDS focuses on three core pillars:
 
 Before you begin, ensure your environment meets the following requirements.
 
-### 1. Data Requirements
+### Data Requirements
 - **Calibre Library:** A folder containing your books and the `metadata.db` file.
-- **Storage:** You should have a few hundred MBs (depending on library size) of **local high-speed storage (SSD)** available for the KOPDS index and image cache. Running the KOPDS data directory on an HDD or network share is **not recommended**.
 
-### 2. Software Requirements
+### Software Requirements
 
-#### If using Docker (Recommended)
-You need Docker and Docker Compose installed. To check if you have them, run:
+#### 1. If using Docker
+- **Docker and Docker Compose:** These need to be installed on the host machine. To check if you have them, run:
 ```bash
 docker --version
 docker compose version
 ```
-*If you don't have them, follow the [official Docker installation guide](https://docs.docker.com/get-docker/).*
+- *If you don't have them, follow the [official Docker installation guide](https://docs.docker.com/get-docker/).*
 
-#### If installing Natively
-You need the Go compiler (v1.25+). To check your version, run:
+#### 2. If installing Natively
+- **Go compiler:** you need version 1.25+. To check your version, run:
 ```bash
 go version
 ```
-*If you don't have it, download it from [go.dev](https://go.dev/dl/). No C compiler is required as KOPDS uses a pure-Go SQLite driver.*
+- *If you don't have it, download it from [go.dev](https://go.dev/dl/). No C compiler is required as KOPDS uses a pure-Go SQLite driver.*
 
-#### Reverse Proxy
-While KOPDS itself uses HTTP Basic Authentication according to the OPDS 1.2 spec, for security reasons you should place it behind a reverse proxy.  Caddy is recommended to keep a pure-Go environment.  Additionally, other services you might want to run off the same server might need HTTPS, such as the KOReader sync server.
+#### 3. Cloud/Remote Calibre Library Synchronization
+- KOPDS is designed for serving a remote Calibre library efficiently, but you will need a way to sync the remote library to the machine running KOPDS.  Rclone is recommended over davfs2 due to better stability, and more graceful handling of network blips.  Rclone also offers finer control allowing you to throttle the connection if needed to avoid overwhelming a resource constrained server during the initial library metadata scan.  Rclone is also written in Go, maintaining a pure Go environment.
+
+- *To install Rclone, see the [official documentation](https://rclone.org/install/).*
+
+#### 4. Reverse Proxy ([recommended](#reverse-proxy))
+- While KOPDS itself uses HTTP Basic Authentication according to the OPDS 1.2 spec, for security reasons you should place it behind a reverse proxy.  Caddy is recommended to keep a pure-Go environment.  Additionally, other services you might want to run off the same server might need HTTPS, such as the KOReader sync server.
 > [!NOTE]
 > A reverse proxy alone does not make your server completely secure.  You are responsible for properly configuring your server to meet your security needs.
 
-#### Cloud/Remote Calibre Library Synchronization
-KOPDS is designed for serving a remote Calibre library efficiently, but you will need a way to sync the remote library to the machine running KOPDS.  Rclone is recommended over davfs2 due to better stability, and more graceful handling of network blips.  Rclone also offers finer control allowing you to throttle the connection if needed to avoid overwhelming a resource constrained server during the initial library metadata scan.  Rclone is also written in Go, maintaining a pure Go environment.
+- *To install Caddy, see the [official documentation](https://caddyserver.com/docs/install).*
 
-### 3. Hardware Requirements
+
+
+### Hardware Requirements
 
 One reason to prefer deploying natively with a Go binary is to minimize resource usage in constrained server setups.  A free-tier GCP e2-micro VM only has 1 GB of memory, and early Raspberry Pi's have even less.  Even if the overhead consumed by Docker is as low as often claimed 100-200 MB (and not closer 300-400 MB), that is still a significant proportion of your available RAM on a micro cloud VM or early-generation Raspberry Pi.  The Go binary running natively should consume only a tenth of that (10-20 MB).  Running your entire stack natively, if using Caddy (20-30 MB) and Rclone (20-40 MB), would consume less RAM than the Docker overhead by itself.
 
@@ -96,9 +101,9 @@ The other hardware requirements are potato-tier.  See recommended below:
 | Storage Space | ~250 MB                      | ~1.5 GB                      | ~25 MB        | ~200 MB       |
 | Network       | 1+ Mbps                      | 1+ Mbps                      |	< 1 Mbps      | 1+ Mbps       |
 
-*Assumes rclone is used to mount remote storage. A swap file is highly recommended to prevent Out-of-Memory (OOM) crashes during initial directory scans.
+_*Assumes rclone is used to mount remote storage. A swap file is highly recommended to prevent Out-of-Memory (OOM) crashes during initial directory scans._
 
-†1 GB will likely not be sufficient if you intend to build your own Docker image locally
+_†1 GB will likely not be sufficient if you intend to build your own Docker image locally_
 
 ---
 
@@ -177,13 +182,13 @@ Follow the prompts to set a secure password.
 7.  Save.
 8.  Tap your new catalog to browse and download your books!
 > [!NOTE]
-> For large libraries it is possible your sub-menus (for Authors, Series, Tags) will extend to more than 3 or 4 pages.  A limitation of OPDS is that only the first few pages are loaded, so the total page count displayed in KOReader is not necessarily accurate when you first enter a sub-menu.  Additionally, if you navigate to the last page (>>), when the page count is not correct, you will stall there, and need to paginate backwards (<) then forwards (>) to access the later menu pages.
+> For large libraries it is possible your sub-menus (navigation feeds in OPDS terminology, eg. Authors, Series, Tags, etc.) will extend to more than 3 or 4 pages.  A limitation of OPDS is that only the first few pages are loaded, so the total page count displayed in KOReader is not necessarily accurate when you first enter a sub-menu.  Additionally, if you navigate to the last page (`>>`), when the page count is not correct, you will stall there, and need to paginate backwards (`<`) then forwards (`>`) to access the later menu pages.
 
 ---
 
 ## 🛠 Native Installation
 
-For users who prefer running KOPDS without Docker.
+For users who prefer running KOPDS without Docker, you can use one of the provided binaries (see Releases), or build one yourself.
 
 ### 1. Build from Source
 ```bash
@@ -276,7 +281,7 @@ To ensure cover thumbnails load instantly on e-ink devices:
 
 ## 🔒 Security & Deployment
 
-### Reverse Proxy (Recommended)
+### Reverse Proxy
 KOPDS uses **HTTP Basic Authentication**. While simple and widely compatible, it transmits credentials in plain text. **You should always deploy KOPDS behind a reverse proxy** (like Caddy, Nginx, or Traefik) that provides **HTTPS**.
 
 **Example Caddyfile:**
