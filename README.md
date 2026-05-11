@@ -89,17 +89,17 @@ go version
 
 ### Hardware Requirements
 
-One reason to prefer deploying natively with a Go binary is to minimize resource usage in constrained server setups.  A free-tier GCP e2-micro VM only has 1 GB of memory, and early Raspberry Pi's have even less.  Even if the overhead consumed by Docker is as low as often claimed 100-200 MB (and not closer 300-400 MB), that is still a significant proportion of your available RAM on a micro cloud VM or early-generation Raspberry Pi.  The Go binary running natively should consume only a tenth of that (10-20 MB).  Running your entire stack natively, if using Caddy (20-30 MB) and Rclone (20-40 MB), would consume less RAM than the Docker overhead by itself.
+One reason to prefer deploying natively with a Go binary is to minimize resource usage in constrained server setups.  A free-tier GCP e2-micro VM only has 1 GB of memory, and early Raspberry Pi's have even less.  Even if the overhead consumed by Docker is as low as often claimed 100-200 MB (and not closer 300-400 MB), that is still a significant proportion of your available RAM on a micro cloud VM or early-generation Raspberry Pi.  The Go binary running natively should consume less than half that (~90 MB).  Running your entire stack natively, if using Caddy (20-30 MB) and Rclone (20-40 MB), would consume less RAM than the Docker overhead by itself.
 
 The other hardware requirements are potato-tier.  See recommended below:
 
 | Specification | Native Dual (kopds + kosync) | Docker Dual (kopds + kosync) | Native kosync | Native kopds |
 | :-----------: | :--------------------------: | :--------------------------: | :----------:  | :----------: |
 | CPU           | 1 Core (1.0 GHz)             | 1 Core (1.0 GHz)    | 1 Core (Any speed) | 1 Core (1.0 GHz) |
-| RAM (Idle)    | ~100 MB                      | ~350 MB                      | < 15 MB       | ~90 MB        |
-| RAM (Minimum) | 512 MB*                      | 1 GB*<sup>†</sup>            | 64 MB         | 512 MB*       |
-| Storage Space | ~250 MB                      | ~1.5 GB                      | ~25 MB        | ~200 MB       |
-| Network       | 1+ Mbps                      | 1+ Mbps                      |	< 1 Mbps      | 1+ Mbps       |
+| RAM (Idle)    | ~100 MB                      | ~350 MB                      | < 15 MB       | ~90 MB       |
+| RAM (Minimum) | 512 MB*                      | 1 GB*<sup>†</sup>            | 64 MB         | 512 MB*      |
+| Storage Space | ~250 MB                      | ~1.5 GB                      | ~25 MB        | ~200 MB      |
+| Network       | 1+ Mbps                      | 1+ Mbps                      |	< 1 Mbps      | 1+ Mbps      |
 
 _*Assumes rclone is used to mount remote storage. A swap file is highly recommended to prevent Out-of-Memory (OOM) crashes during initial directory scans._
 
