@@ -172,7 +172,7 @@ Follow the prompts to set a secure password.
 ## 📱 Usage with KOReader
 
 1.  Open **KOReader**.
-2.  Tap the top menu and select the **Search** icon (magnifying glass).
+2.  Tap the top menu (while in the file browser) and select the **Search** icon (magnifying glass).
 3.  Select **OPDS catalog** -> **Add new catalog**.
 4.  Enter a name (e.g., "Home Library").
 5.  Enter the URL: `http://your-server-ip:8080/opds/v1.2/catalog`
