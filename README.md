@@ -85,8 +85,6 @@ go version
 
 - *To install Caddy, see the [official documentation](https://caddyserver.com/docs/install).*
 
-
-
 ### Hardware Requirements
 
 One reason to prefer deploying natively with a Go binary is to minimize resource usage in constrained server setups.  A free-tier GCP e2-micro VM only has 1 GB of memory, and early Raspberry Pi's have even less.  Even if the overhead consumed by Docker is as low as often claimed 100-200 MB (and not closer 300-400 MB), that is still a significant proportion of your available RAM on a micro cloud VM or early-generation Raspberry Pi.  The Go binary running natively should consume less than half that (~90 MB).  Running your entire stack natively, if using Caddy (20-30 MB) and Rclone (20-40 MB), would consume less RAM than the Docker overhead by itself.
