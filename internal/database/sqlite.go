@@ -8,6 +8,15 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+type Storage struct {
+	db *sql.DB
+}
+
+// NewStorage creates a new storage wrapper.
+func NewStorage(db *sql.DB) *Storage {
+	return &Storage{db: db}
+}
+
 // NewSQLite creates a new SQLite database connection.
 func NewSQLite(path string) (*sql.DB, error) {
 	// 3.1 Security: Ensure the database file is handled with 0600 permissions.
@@ -41,11 +50,7 @@ func NewSQLite(path string) (*sql.DB, error) {
 }
 
 // Migrate applies the schema to the database.
-// To handle schema evolution, we drop the 'books' table if it doesn't match our latest schema,
-// or simply ensure we can run migrations.
 func Migrate(db *sql.DB) error {
-	// Check if the 'books' table has the 'series_id' column.
-	// If not, we drop it to re-create it with the correct schema.
 	var columnName string
 	err := db.QueryRow("SELECT name FROM pragma_table_info('books') WHERE name='series_id'").Scan(&columnName)
 	if err != nil || columnName == "" {
@@ -139,4 +144,36 @@ func Migrate(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// EnforceStorageCap checks if the database file exceeds the size limit.
+func (s *Storage) EnforceStorageCap(path string, capMB int) (bool, error) {
+	if capMB <= 0 {
+		return false, nil
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	if info.Size() < int64(capMB)*1024*1024 {
+		return false, nil
+	}
+
+	// Delete oldest 20% of sync state records (as a proxy for progress/old entries).
+	_, err = s.db.Exec(`
+		DELETE FROM sync_state 
+		WHERE key IN (
+			SELECT key 
+			FROM sync_state 
+			ORDER BY key ASC 
+			LIMIT (SELECT COUNT(*) / 5 FROM sync_state) + 1
+		)`)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = s.db.Exec("VACUUM")
+	return true, err
 }
