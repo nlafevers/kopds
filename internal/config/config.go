@@ -17,6 +17,7 @@ type Config struct {
 	Port               int           `mapstructure:"port"`
 	LogLevel           string        `mapstructure:"log_level"`
 	JSONLog            bool          `mapstructure:"json_log"`
+	LogPath            string        `mapstructure:"log_path"`
 	SyncInterval       time.Duration `mapstructure:"sync_interval"`
 	ImageCachePath     string        `mapstructure:"image_cache_path"`
 	ImageCacheMaxCount int           `mapstructure:"image_cache_max_count"`
@@ -35,6 +36,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("base_url", "http://localhost:8080")
 	viper.SetDefault("log_level", "info")
 	viper.SetDefault("json_log", false)
+	viper.SetDefault("log_path", "")
 	viper.SetDefault("sync_interval", "30m")
 	viper.SetDefault("image_cache_path", "cache/images")
 	viper.SetDefault("image_cache_max_count", 1000)
