@@ -3,12 +3,27 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	_ "modernc.org/sqlite"
 )
 
 // NewSQLite creates a new SQLite database connection.
 func NewSQLite(path string) (*sql.DB, error) {
+	// 3.1 Security: Ensure the database file is handled with 0600 permissions.
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create db file with 0600: %w", err)
+		}
+		file.Close()
+	} else if err == nil {
+		// Ensure existing file has 0600
+		if err := os.Chmod(path, 0600); err != nil {
+			return nil, fmt.Errorf("failed to chmod 0600 on existing db file: %w", err)
+		}
+	}
+
 	// DSN with performance pragmas
 	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=cache_size(-2000)", path)
 
@@ -18,6 +33,7 @@ func NewSQLite(path string) (*sql.DB, error) {
 	}
 
 	if err := db.Ping(); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
