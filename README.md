@@ -19,12 +19,13 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 4.  [Quick Start (Docker)](#-quick-start-docker)
 5.  [Usage with KOReader](#-usage-with-koreader)
 6.  [Native Installation](#-native-installation)
-7.  [Configuration Reference](#-configuration-reference)
-8.  [Advanced Logging](#-advanced-logging)
-9.  [Technical Architecture](#-technical-architecture)
-10. [Security & Deployment](#-security--deployment)
-11. [Troubleshooting](#-troubleshooting)
-12. [License](#-license)
+7.  [CLI User Management](#-cli-user-management)
+8.  [Configuration Reference](#-configuration-reference)
+9.  [Advanced Logging](#-advanced-logging)
+10. [Technical Architecture](#-technical-architecture)
+11. [Security & Deployment](#-security--deployment)
+12. [Troubleshooting](#-troubleshooting)
+13. [License](#-license)
 
 ---
 
@@ -217,6 +218,36 @@ export KOPDS_LIBRARY_PATH=/path/to/calibre
 
 ---
 
+## 🖥 CLI User Management
+
+KOPDS includes a built-in CLI for managing users securely without exposing passwords in your shell history.
+
+### Create a User
+```bash
+./kopds create-user <username>
+```
+You will be prompted to enter and confirm a password. The characters will not be visible.
+
+### Change a Password
+```bash
+./kopds change-password <username>
+```
+Useful for resetting a user's password or regular security updates.
+
+### Delete a User
+```bash
+./kopds delete-user <username>
+```
+This will permanently remove the user and all their reading progress from the database.
+
+### Automated Setup (Non-interactive)
+For Docker initialization or scripts, you can use the `--password-stdin` flag:
+```bash
+echo "mypassword" | ./kopds create-user admin --password-stdin
+```
+
+---
+
 ## ⚙️ Configuration Reference
 
 All settings can be provided as environment variables (prefixed with `KOPDS_`) or in a `config.yaml` file.
@@ -232,6 +263,7 @@ All settings can be provided as environment variables (prefixed with `KOPDS_`) o
 | `KOPDS_SYNC_INTERVAL` | How often to scan Calibre for changes (e.g., `1h`, `30m`). | `30m` |
 | `KOPDS_IMAGE_CACHE_PATH` | Directory for resized cover thumbnails. | `cache/images` |
 | `KOPDS_IMAGE_CACHE_MAX_COUNT` | Maximum number of images to keep in cache. | `1000` |
+| `KOPDS_STORAGE_CAP_MB` | Maximum database size in MB (0 to disable). | `0` |
 
 ---
 
