@@ -43,9 +43,37 @@ func (r *sqliteUserRepository) Save(ctx context.Context, user *domain.User) erro
 }
 
 func (r *sqliteUserRepository) DeleteUser(ctx context.Context, username string) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM users WHERE username = ?", username)
+	res, err := r.db.ExecContext(ctx, "DELETE FROM users WHERE username = ?", username)
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("user not found")
+	}
+
+	return nil
+}
+
+func (r *sqliteUserRepository) UpdatePassword(ctx context.Context, username, password string) error {
+	res, err := r.db.ExecContext(ctx, "UPDATE users SET password = ? WHERE username = ?", password, username)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("user not found")
+	}
+
 	return nil
 }
