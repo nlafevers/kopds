@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/rs/zerolog/log"
+	"log/slog"
 )
 
 // DiskCache implements a disk-based LRU cache for images.
@@ -31,7 +31,7 @@ func NewDiskCache(path string, maxCount int) (*DiskCache, error) {
 	onEvict := func(key string, value struct{}) {
 		filePath := filepath.Join(c.path, key)
 		if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
-			log.Error().Err(err).Str("path", filePath).Msg("failed to delete evicted cache file")
+			slog.Error("failed to delete evicted cache file", "path", filePath, "error", err)
 		}
 	}
 
@@ -52,11 +52,6 @@ func (c *DiskCache) loadExistingFiles() error {
 	entries, err := os.ReadDir(c.path)
 	if err != nil {
 		return err
-	}
-
-	type fileInfo struct {
-		name    string
-		modTime os.FileInfo
 	}
 
 	var files []os.DirEntry
@@ -88,7 +83,7 @@ func (c *DiskCache) loadExistingFiles() error {
 		c.lru.Add(entry.name, struct{}{})
 	}
 
-	log.Info().Int("count", c.lru.Len()).Msg("Loaded existing image cache entries")
+	slog.Info("Loaded existing image cache entries", "count", c.lru.Len())
 	return nil
 }
 
