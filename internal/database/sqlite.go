@@ -33,13 +33,19 @@ func NewSQLite(path string) (*sql.DB, error) {
 		}
 	}
 
-	// DSN with performance pragmas
-	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=cache_size(-2000)", path)
-
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
+
+	// 3.3 Synchronize SQLite PRAGMAs: Enable WAL mode
+	if _, err := db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to enable WAL: %w", err)
+	}
+
+	// 3.3 Synchronize SQLite PRAGMAs: SetMaxOpenConns(1)
+	db.SetMaxOpenConns(1)
 
 	if err := db.Ping(); err != nil {
 		db.Close()
