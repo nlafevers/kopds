@@ -1,30 +1,48 @@
 package logger
 
 import (
+	"fmt"
+	"io"
+	"log/slog"
 	"os"
-	"time"
-
-	"github.com/rs/zerolog"
+	"strings"
 )
 
-// New initializes a new logger.
-func New(level string, json bool) zerolog.Logger {
-	var log zerolog.Logger
+// New initializes a new logger using slog.
+func New(level string, json bool, logPath string) *slog.Logger {
+	var slogLevel slog.Level
+	switch strings.ToLower(level) {
+	case "debug":
+		slogLevel = slog.LevelDebug
+	case "info":
+		slogLevel = slog.LevelInfo
+	case "warn":
+		slogLevel = slog.LevelWarn
+	case "error":
+		slogLevel = slog.LevelError
+	default:
+		slogLevel = slog.LevelInfo
+	}
 
-	if json {
-		log = zerolog.New(os.Stderr).With().Timestamp().Logger()
-	} else {
-		output := zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			TimeFormat: time.RFC3339,
+	var output io.Writer = os.Stderr
+
+	if logPath != "" {
+		file, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to open log file: %v\n", err)
+		} else {
+			output = io.MultiWriter(os.Stderr, file)
 		}
-		log = zerolog.New(output).With().Timestamp().Logger()
 	}
 
-	lvl, err := zerolog.ParseLevel(level)
-	if err != nil {
-		lvl = zerolog.InfoLevel
+	var handler slog.Handler
+	if json {
+		handler = slog.NewJSONHandler(output, &slog.HandlerOptions{Level: slogLevel})
+	} else {
+		handler = slog.NewTextHandler(output, &slog.HandlerOptions{Level: slogLevel})
 	}
 
-	return log.Level(lvl)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	return logger
 }

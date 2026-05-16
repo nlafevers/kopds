@@ -237,7 +237,7 @@ All settings can be provided as environment variables (prefixed with `KOPDS_`) o
 
 ## 📊 Advanced Logging
 
-KOPDS uses structured logging via `zerolog` to provide clear and actionable insights into the server's operation.
+KOPDS uses structured logging via the Go standard library `slog` to provide clear and actionable insights into the server's operation.
 
 ### Log Formats
 - **Human-Readable (Default):** Optimized for terminal viewing with colors and formatted timestamps. Best for local development and native deployments.

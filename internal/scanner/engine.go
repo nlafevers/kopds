@@ -9,17 +9,17 @@ import (
 	"time"
 
 	"github.com/nlafevers/kopds/internal/domain"
-	"github.com/rs/zerolog"
+	"log/slog"
 )
 
 type SyncEngine struct {
 	Repo        domain.BookRepository
 	CalibrePath string
-	Logger      zerolog.Logger
+	Logger      *slog.Logger
 }
 
 // NewSyncEngine creates a new synchronization engine.
-func NewSyncEngine(repo domain.BookRepository, calibrePath string, logger zerolog.Logger) *SyncEngine {
+func NewSyncEngine(repo domain.BookRepository, calibrePath string, logger *slog.Logger) *SyncEngine {
 	return &SyncEngine{
 		Repo:        repo,
 		CalibrePath: calibrePath,
@@ -42,7 +42,7 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 	lastSizeStr, _ := e.Repo.GetSyncState(ctx, "calibre_size")
 
 	if lastMtimeStr == strconv.FormatInt(currentMtime, 10) && lastSizeStr == strconv.FormatInt(currentSize, 10) {
-		e.Logger.Debug().Msg("Calibre library metadata.db unchanged, skipping sync")
+		e.Logger.Debug("Calibre library metadata.db unchanged, skipping sync")
 		return nil
 	}
 
@@ -62,30 +62,30 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 	if lastModifiedStr != "" {
 		threshold, err = time.Parse(time.RFC3339, lastModifiedStr)
 		if err != nil {
-			e.Logger.Warn().Err(err).Msg("Failed to parse last_modified_timestamp sync state, using zero time")
+			e.Logger.Warn("Failed to parse last_modified_timestamp sync state, using zero time", "error", err)
 			threshold = time.Time{}
 		}
 	}
 
-	e.Logger.Info().Time("threshold", threshold).Msg("Fetching changed books from Calibre")
+	e.Logger.Info("Fetching changed books from Calibre", "threshold", threshold)
 	books, err := reader.GetChangedBooks(ctx, threshold)
 	if err != nil {
 		return fmt.Errorf("failed to get changed books: %w", err)
 	}
 
 	if len(books) == 0 {
-		e.Logger.Info().Msg("No new or modified books found in Calibre")
+		e.Logger.Info("No new or modified books found in Calibre")
 		pruned, err := e.Repo.PruneMissingCalibreIDs(ctx, allCalibreIDs)
 		if err != nil {
 			return fmt.Errorf("failed to prune missing books: %w", err)
 		}
 		if pruned > 0 {
-			e.Logger.Info().Int64("count", pruned).Msg("Pruned books removed from Calibre")
+			e.Logger.Info("Pruned books removed from Calibre", "count", pruned)
 		}
 		return e.updateSyncState(ctx, currentMtime, currentSize, threshold)
 	}
 
-	e.Logger.Info().Int("count", len(books)).Msg("Populating metadata for changed books")
+	e.Logger.Info("Populating metadata for changed books", "count", len(books))
 	if err := reader.PopulateMetadata(ctx, books); err != nil {
 		return fmt.Errorf("failed to populate metadata: %w", err)
 	}
@@ -95,7 +95,7 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 	var syncErr error
 	for _, book := range books {
 		if err := e.Repo.Upsert(ctx, &book); err != nil {
-			e.Logger.Error().Err(err).Int64("calibre_id", book.CalibreID).Msg("Failed to upsert book")
+			e.Logger.Error("Failed to upsert book", "calibre_id", book.CalibreID, "error", err)
 			syncErr = fmt.Errorf("failed to upsert one or more books")
 			continue
 		}
@@ -105,7 +105,7 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 		}
 	}
 
-	e.Logger.Info().Int("total", len(books)).Int("success", successCount).Msg("Synchronization batch completed")
+	e.Logger.Info("Synchronization batch completed", "total", len(books), "success", successCount)
 	if syncErr != nil {
 		return syncErr
 	}
@@ -115,7 +115,7 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 		return fmt.Errorf("failed to prune missing books: %w", err)
 	}
 	if pruned > 0 {
-		e.Logger.Info().Int64("count", pruned).Msg("Pruned books removed from Calibre")
+		e.Logger.Info("Pruned books removed from Calibre", "count", pruned)
 	}
 
 	return e.updateSyncState(ctx, currentMtime, currentSize, latestModified)

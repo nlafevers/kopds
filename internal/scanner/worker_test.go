@@ -2,11 +2,11 @@ package scanner
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/rs/zerolog"
 )
 
 type mockIndexer struct {
@@ -29,7 +29,7 @@ func (m *mockIndexer) getSyncCount() int {
 
 func TestStartWorker(t *testing.T) {
 	mock := &mockIndexer{}
-	logger := zerolog.New(nil)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ctx, cancel := context.WithCancel(context.Background())
 
 	interval := 100 * time.Millisecond
