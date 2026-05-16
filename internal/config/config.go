@@ -21,6 +21,7 @@ type Config struct {
 	SyncInterval       time.Duration `mapstructure:"sync_interval"`
 	ImageCachePath     string        `mapstructure:"image_cache_path"`
 	ImageCacheMaxCount int           `mapstructure:"image_cache_max_count"`
+	StorageCapMB       int           `mapstructure:"storage_cap_mb"`
 }
 
 // Load loads the configuration from file and environment variables.
@@ -40,6 +41,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("sync_interval", "30m")
 	viper.SetDefault("image_cache_path", "cache/images")
 	viper.SetDefault("image_cache_max_count", 1000)
+	viper.SetDefault("storage_cap_mb", 0)
 
 	viper.SetEnvPrefix("KOPDS")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
