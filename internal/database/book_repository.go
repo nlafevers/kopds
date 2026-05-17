@@ -598,39 +598,35 @@ func ReindexBook(tx *sql.Tx, bookID int64) error {
 		return err
 	}
 
-	var authors []string
 	rowsA, err := tx.Query("SELECT name FROM authors a JOIN books_authors_link bal ON a.id = bal.author_id WHERE bal.book_id = ?", bookID)
 	if err != nil {
 		return err
 	}
-	defer rowsA.Close()
+	var authors []string
 	for rowsA.Next() {
 		var a string
 		if err := rowsA.Scan(&a); err != nil {
+			rowsA.Close()
 			return err
 		}
 		authors = append(authors, a)
 	}
-	if err := rowsA.Err(); err != nil {
-		return err
-	}
+	rowsA.Close()
 
-	var tags []string
 	rowsT, err := tx.Query("SELECT name FROM tags t JOIN books_tags_link btl ON t.id = btl.tag_id WHERE btl.book_id = ?", bookID)
 	if err != nil {
 		return err
 	}
-	defer rowsT.Close()
+	var tags []string
 	for rowsT.Next() {
 		var t string
 		if err := rowsT.Scan(&t); err != nil {
+			rowsT.Close()
 			return err
 		}
 		tags = append(tags, t)
 	}
-	if err := rowsT.Err(); err != nil {
-		return err
-	}
+	rowsT.Close()
 
 	// Update books_search
 	// First, remove existing entry if any
