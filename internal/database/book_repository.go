@@ -183,12 +183,18 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 	}
 	defer rows.Close()
 
-	var books []domain.Book
+	var ids []int64
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
 			return nil, 0, err
 		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+
+	var books []domain.Book
+	for _, id := range ids {
 		book, err := r.GetByID(ctx, id)
 		if err != nil {
 			return nil, 0, err
@@ -196,9 +202,6 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 		if book != nil {
 			books = append(books, *book)
 		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
 	}
 	return books, total, nil
 }
