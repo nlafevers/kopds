@@ -181,12 +181,12 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 	if err != nil {
 		return nil, 0, fmt.Errorf("search failed: %w", err)
 	}
-	defer rows.Close()
 
 	var ids []int64
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
+			rows.Close()
 			return nil, 0, err
 		}
 		ids = append(ids, id)
@@ -255,7 +255,7 @@ func (r *sqliteBookRepository) ListByAuthor(ctx context.Context, authorID int64,
 	query := `
 		SELECT b.id 
 		FROM books b
-		JOIN books_authors_link bal ON b.id = bal.book_id
+		JOIN books_authors_link bal ON b.id = bal.author_id
 		WHERE bal.author_id = ?
 		ORDER BY b.sort ASC
 		LIMIT ? OFFSET ?`
@@ -408,14 +408,20 @@ func (r *sqliteBookRepository) listBooks(ctx context.Context, query string, args
 	if err != nil {
 		return nil, fmt.Errorf("failed to list books: %w", err)
 	}
-	defer rows.Close()
 
-	var books []domain.Book
+	var ids []int64
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
+			rows.Close()
 			return nil, err
 		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+
+	var books []domain.Book
+	for _, id := range ids {
 		book, err := r.GetByID(ctx, id)
 		if err != nil {
 			return nil, err
@@ -423,9 +429,6 @@ func (r *sqliteBookRepository) listBooks(ctx context.Context, query string, args
 		if book != nil {
 			books = append(books, *book)
 		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
 	}
 	return books, nil
 }
@@ -529,11 +532,60 @@ func (r *sqliteBookRepository) Upsert(ctx context.Context, book *domain.Book) er
 	}
 
 	// 6. Update FTS5
-	if err := ReindexBook(tx, book.ID); err != nil {
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit upsert: %w", err)
+	}
+
+	return r.ReindexBook(ctx, book.ID)
+}
+
+func (r *sqliteBookRepository) ReindexBook(ctx context.Context, bookID int64) error {
+	// First, remove existing entry if any
+	_, err := r.db.ExecContext(ctx, "DELETE FROM books_search WHERE rowid = ?", bookID)
+	if err != nil {
+		return err
+	}
+
+	// Update books_search using a single INSERT SELECT
+	query := `
+		INSERT INTO books_search (rowid, title, series, authors, tags)
+		SELECT 
+			b.id, 
+			b.title, 
+			IFNULL(s.name, ''),
+			(SELECT IFNULL(GROUP_CONCAT(a.name, ' '), '') FROM authors a JOIN books_authors_link bal ON a.id = bal.author_id WHERE bal.book_id = b.id),
+			(SELECT IFNULL(GROUP_CONCAT(t.name, ' '), '') FROM tags t JOIN books_tags_link btl ON t.id = btl.tag_id WHERE btl.book_id = b.id)
+		FROM books b 
+		LEFT JOIN series s ON b.series_id = s.id 
+		WHERE b.id = ?`
+
+	_, err = r.db.ExecContext(ctx, query, bookID)
+	if err != nil {
 		return fmt.Errorf("failed to reindex book: %w", err)
 	}
 
-	return tx.Commit()
+	return nil
+}
+
+// ReindexBook updates the FTS5 search table for a given book.
+func ReindexBook(tx *sql.Tx, bookID int64) error {
+	_, err := tx.Exec("DELETE FROM books_search WHERE rowid = ?", bookID)
+	if err != nil {
+		return err
+	}
+	query := `
+		INSERT INTO books_search (rowid, title, series, authors, tags)
+		SELECT 
+			b.id, 
+			b.title, 
+			IFNULL(s.name, ''),
+			(SELECT IFNULL(GROUP_CONCAT(a.name, ' '), '') FROM authors a JOIN books_authors_link bal ON a.id = bal.author_id WHERE bal.book_id = b.id),
+			(SELECT IFNULL(GROUP_CONCAT(t.name, ' '), '') FROM tags t JOIN books_tags_link btl ON t.id = btl.tag_id WHERE btl.book_id = b.id)
+		FROM books b 
+		LEFT JOIN series s ON b.series_id = s.id 
+		WHERE b.id = ?`
+	_, err = tx.Exec(query, bookID)
+	return err
 }
 
 func (r *sqliteBookRepository) PruneMissingCalibreIDs(ctx context.Context, keepIDs []int64) (int64, error) {
@@ -586,61 +638,6 @@ func (r *sqliteBookRepository) PruneMissingCalibreIDs(ctx context.Context, keepI
 		return 0, err
 	}
 	return pruned, nil
-}
-
-// ReindexBook updates the FTS5 search table for a given book.
-func ReindexBook(tx *sql.Tx, bookID int64) error {
-	// Fetch all data for the book
-	var title string
-	var seriesName sql.NullString
-	err := tx.QueryRow("SELECT b.title, s.name FROM books b LEFT JOIN series s ON b.series_id = s.id WHERE b.id = ?", bookID).Scan(&title, &seriesName)
-	if err != nil {
-		return err
-	}
-
-	rowsA, err := tx.Query("SELECT name FROM authors a JOIN books_authors_link bal ON a.id = bal.author_id WHERE bal.book_id = ?", bookID)
-	if err != nil {
-		return err
-	}
-	var authors []string
-	for rowsA.Next() {
-		var a string
-		if err := rowsA.Scan(&a); err != nil {
-			rowsA.Close()
-			return err
-		}
-		authors = append(authors, a)
-	}
-	rowsA.Close()
-
-	rowsT, err := tx.Query("SELECT name FROM tags t JOIN books_tags_link btl ON t.id = btl.tag_id WHERE btl.book_id = ?", bookID)
-	if err != nil {
-		return err
-	}
-	var tags []string
-	for rowsT.Next() {
-		var t string
-		if err := rowsT.Scan(&t); err != nil {
-			rowsT.Close()
-			return err
-		}
-		tags = append(tags, t)
-	}
-	rowsT.Close()
-
-	// Update books_search
-	// First, remove existing entry if any
-	_, err = tx.Exec("DELETE FROM books_search WHERE rowid = ?", bookID)
-	if err != nil {
-		return err
-	}
-
-	// Insert new entry
-	_, err = tx.Exec(
-		"INSERT INTO books_search (rowid, title, authors, series, tags) VALUES (?, ?, ?, ?, ?)",
-		bookID, title, strings.Join(authors, " "), seriesName.String, strings.Join(tags, " "),
-	)
-	return err
 }
 
 func (r *sqliteBookRepository) GetSyncState(ctx context.Context, key string) (string, error) {
