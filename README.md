@@ -254,12 +254,13 @@ All settings can be provided as environment variables (prefixed with `KOPDS_`) o
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `KOPDS_LIBRARY_PATH` | **Required.** Path to your Calibre library folder. | - |
+| `KOPDS_LIBRARY_PATH` | Path to your Calibre library folder. | - |
 | `KOPDS_DATABASE_PATH` | Path where the local SQLite index will be stored. | `./data/kopds.db` |
-| `KOPDS_BASE_URL` | The external URL used for generating OPDS links. | `http://your-server-ip:8080` |
+| `KOPDS_BASE_URL` | The external URL used for generating OPDS links. | `http://localhost:8080` |
 | `KOPDS_PORT` | The port the server listens on. | `8080` |
 | `KOPDS_LOG_LEVEL` | Logging verbosity (`debug`, `info`, `warn`, `error`). | `info` |
 | `KOPDS_JSON_LOG` | Enable structured JSON logging (best for ELK/Loki). | `false` |
+| `KOPDS_LOG_PATH` | File path for unified logging. | - |
 | `KOPDS_SYNC_INTERVAL` | How often to scan Calibre for changes (e.g., `1h`, `30m`). | `30m` |
 | `KOPDS_IMAGE_CACHE_PATH` | Directory for resized cover thumbnails. | `cache/images` |
 | `KOPDS_IMAGE_CACHE_MAX_COUNT` | Maximum number of images to keep in cache. | `1000` |
