@@ -1,6 +1,9 @@
 services:
   kopds:
-    image: ghcr.io/nlafevers/kopds:latest # or build: .
+    build:
+      context: ..
+      dockerfile: build/Dockerfile
+    image: ghcr.io/nlafevers/kopds:latest
     container_name: kopds
     restart: unless-stopped
     ports:
