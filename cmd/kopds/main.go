@@ -266,7 +266,7 @@ func runServer(cfg *config.Config, log *slog.Logger) {
 	// 5. Initialize Scanner
 	bookRepo := database.NewBookRepository(db)
 	userRepo := database.NewUserRepository(db)
-	engine := scanner.NewSyncEngine(bookRepo, cfg.LibraryPath, log)
+	engine := scanner.NewSyncEngine(bookRepo, cfg.LibraryPath, cfg.DatabasePath, cfg.StorageCapMB, log)
 
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	defer workerCancel()
