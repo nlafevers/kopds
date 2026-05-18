@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -33,7 +34,7 @@ func Load() (*Config, error) {
 
 	viper.SetDefault("library_path", "")
 	viper.SetDefault("port", 8080)
-	viper.SetDefault("database_path", "kopds.db")
+	viper.SetDefault("database_path", "./data/kopds.db")
 	viper.SetDefault("base_url", "http://localhost:8080")
 	viper.SetDefault("log_level", "info")
 	viper.SetDefault("json_log", false)
@@ -57,6 +58,27 @@ func Load() (*Config, error) {
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, err
+	}
+
+	// Absolute path resolution for DatabasePath, LogPath, and ImageCachePath
+	exePath, err := os.Executable()
+	if err == nil {
+		exeDir := filepath.Dir(exePath)
+		if !filepath.IsAbs(cfg.DatabasePath) {
+			cfg.DatabasePath = filepath.Join(exeDir, cfg.DatabasePath)
+		}
+		if cfg.LogPath != "" && !filepath.IsAbs(cfg.LogPath) {
+			cfg.LogPath = filepath.Join(exeDir, cfg.LogPath)
+		} else if cfg.LogPath == "" {
+			// Auto-discover kopds.log in the application directory
+			defaultLog := filepath.Join(exeDir, "kopds.log")
+			if _, err := os.Stat(defaultLog); err == nil {
+				cfg.LogPath = defaultLog
+			}
+		}
+		if !filepath.IsAbs(cfg.ImageCachePath) {
+			cfg.ImageCachePath = filepath.Join(exeDir, cfg.ImageCachePath)
+		}
 	}
 
 	return &cfg, nil
