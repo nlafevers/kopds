@@ -117,7 +117,7 @@ mkdir ~/kopds && cd ~/kopds
 ```
 
 ### 2. Create Docker Compose File
-Create a file named `docker-compose.yml` and paste the following content. **Make sure to edit the host path to your Calibre library and `KOPDS_BASE_URL`.**
+Create a file named `deploy/docker-compose.yml` and paste the following content. **Make sure to edit the host path to your Calibre library and `KOPDS_BASE_URL`.**
 
 ```yaml
 services:
@@ -356,3 +356,4 @@ For the best experience:
 ## 📜 License
 
 KOPDS is released under the **GPL-3.0 License**. See the [LICENSE](LICENSE) file for details.
+(LICENSE) file for details.
