@@ -13,17 +13,21 @@ import (
 )
 
 type SyncEngine struct {
-	Repo        domain.BookRepository
-	CalibrePath string
-	Logger      *slog.Logger
+	Repo         domain.BookRepository
+	CalibrePath  string
+	DatabasePath string
+	StorageCapMB int
+	Logger       *slog.Logger
 }
 
 // NewSyncEngine creates a new synchronization engine.
-func NewSyncEngine(repo domain.BookRepository, calibrePath string, logger *slog.Logger) *SyncEngine {
+func NewSyncEngine(repo domain.BookRepository, calibrePath, dbPath string, capMB int, logger *slog.Logger) *SyncEngine {
 	return &SyncEngine{
-		Repo:        repo,
-		CalibrePath: calibrePath,
-		Logger:      logger,
+		Repo:         repo,
+		CalibrePath:  calibrePath,
+		DatabasePath: dbPath,
+		StorageCapMB: capMB,
+		Logger:       logger,
 	}
 }
 
@@ -82,43 +86,57 @@ func (e *SyncEngine) Sync(ctx context.Context) error {
 		if pruned > 0 {
 			e.Logger.Info("Pruned books removed from Calibre", "count", pruned)
 		}
-		return e.updateSyncState(ctx, currentMtime, currentSize, threshold)
-	}
-
-	e.Logger.Info("Populating metadata for changed books", "count", len(books))
-	if err := reader.PopulateMetadata(ctx, books); err != nil {
-		return fmt.Errorf("failed to populate metadata: %w", err)
-	}
-
-	latestModified := threshold
-	successCount := 0
-	var syncErr error
-	for _, book := range books {
-		if err := e.Repo.Upsert(ctx, &book); err != nil {
-			e.Logger.Error("Failed to upsert book", "calibre_id", book.CalibreID, "error", err)
-			syncErr = fmt.Errorf("failed to upsert one or more books")
-			continue
+		err = e.updateSyncState(ctx, currentMtime, currentSize, threshold)
+		if err != nil {
+			return err
 		}
-		successCount++
-		if book.LastModified.After(latestModified) {
-			latestModified = book.LastModified
+	} else {
+		e.Logger.Info("Populating metadata for changed books", "count", len(books))
+		if err := reader.PopulateMetadata(ctx, books); err != nil {
+			return fmt.Errorf("failed to populate metadata: %w", err)
+		}
+
+		latestModified := threshold
+		successCount := 0
+		var syncErr error
+		for _, book := range books {
+			if err := e.Repo.Upsert(ctx, &book); err != nil {
+				e.Logger.Error("Failed to upsert book", "calibre_id", book.CalibreID, "error", err)
+				syncErr = fmt.Errorf("failed to upsert one or more books")
+				continue
+			}
+			successCount++
+			if book.LastModified.After(latestModified) {
+				latestModified = book.LastModified
+			}
+		}
+
+		e.Logger.Info("Synchronization batch completed", "total", len(books), "success", successCount)
+		if syncErr != nil {
+			return syncErr
+		}
+
+		pruned, err := e.Repo.PruneMissingCalibreIDs(ctx, allCalibreIDs)
+		if err != nil {
+			return fmt.Errorf("failed to prune missing books: %w", err)
+		}
+		if pruned > 0 {
+			e.Logger.Info("Pruned books removed from Calibre", "count", pruned)
+		}
+
+		if err := e.updateSyncState(ctx, currentMtime, currentSize, latestModified); err != nil {
+			return err
 		}
 	}
 
-	e.Logger.Info("Synchronization batch completed", "total", len(books), "success", successCount)
-	if syncErr != nil {
-		return syncErr
+	// Enforce storage cap
+	if pruned, err := e.Repo.EnforceStorageCap(ctx, e.DatabasePath, e.StorageCapMB); err != nil {
+		e.Logger.Error("failed to enforce storage cap", "error", err)
+	} else if pruned {
+		e.Logger.Info("storage cap enforced: oldest records pruned", "db_path", e.DatabasePath, "cap_mb", e.StorageCapMB)
 	}
 
-	pruned, err := e.Repo.PruneMissingCalibreIDs(ctx, allCalibreIDs)
-	if err != nil {
-		return fmt.Errorf("failed to prune missing books: %w", err)
-	}
-	if pruned > 0 {
-		e.Logger.Info("Pruned books removed from Calibre", "count", pruned)
-	}
-
-	return e.updateSyncState(ctx, currentMtime, currentSize, latestModified)
+	return nil
 }
 
 func (e *SyncEngine) updateSyncState(ctx context.Context, mtime int64, size int64, lastModified time.Time) error {
