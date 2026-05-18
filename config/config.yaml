@@ -4,3 +4,5 @@ port: 8080
 log_level: debug
 json_log: false
 sync_interval: 30m
+log_path: ""
+storage_cap_mb: 0
