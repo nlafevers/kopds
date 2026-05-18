@@ -17,6 +17,7 @@ type BookRepository interface {
 	PruneMissingCalibreIDs(ctx context.Context, keepIDs []int64) (int64, error)
 	GetSyncState(ctx context.Context, key string) (string, error)
 	SetSyncState(ctx context.Context, key, value string) error
+	EnforceStorageCap(ctx context.Context, path string, capMB int) (bool, error)
 }
 
 // UserRepository defines the interface for user data access.
