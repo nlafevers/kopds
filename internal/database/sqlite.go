@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	_ "modernc.org/sqlite"
 )
@@ -19,6 +20,12 @@ func NewStorage(db *sql.DB) *Storage {
 
 // NewSQLite creates a new SQLite database connection.
 func NewSQLite(path string) (*sql.DB, error) {
+	// Ensure the parent directory of the database file exists.
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create database directory: %w", err)
+	}
+
 	// 3.1 Security: Ensure the database file is handled with 0600 permissions.
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
