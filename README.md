@@ -255,7 +255,7 @@ All settings can be provided as environment variables (prefixed with `KOPDS_`) o
 | Variable | Description | Default |
 | :--- | :--- | :--- |
 | `KOPDS_LIBRARY_PATH` | **Required.** Path to your Calibre library folder. | - |
-| `KOPDS_DATABASE_PATH` | Path where the local SQLite index will be stored. | `kopds.db` |
+| `KOPDS_DATABASE_PATH` | Path where the local SQLite index will be stored. | `./data/kopds.db` |
 | `KOPDS_BASE_URL` | The external URL used for generating OPDS links. | `http://your-server-ip:8080` |
 | `KOPDS_PORT` | The port the server listens on. | `8080` |
 | `KOPDS_LOG_LEVEL` | Logging verbosity (`debug`, `info`, `warn`, `error`). | `info` |
