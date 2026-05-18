@@ -31,7 +31,7 @@ touch "$LIB_DIR/Author Name/Book Title/Book Title.epub"
 
 # Build server
 echo "Building KOPDS..."
-go build -o $BIN_NAME ./cmd/kopds
+go build -o $BIN_NAME ../cmd/kopds
 
 # Create user via CLI
 echo "Creating test user..."
