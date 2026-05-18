@@ -659,3 +659,8 @@ func (r *sqliteBookRepository) SetSyncState(ctx context.Context, key, value stri
 	}
 	return nil
 }
+
+func (r *sqliteBookRepository) EnforceStorageCap(ctx context.Context, path string, capMB int) (bool, error) {
+	storage := &Storage{db: r.db}
+	return storage.EnforceStorageCap(path, capMB)
+}
