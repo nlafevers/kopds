@@ -18,7 +18,7 @@ cleanup() {
     if [ -n "$PID" ]; then
         kill $PID 2>/dev/null || true
     fi
-    rm -f $DB $BIN_NAME
+    rm -f "$DB" "$DB-shm" "$DB-wal" "$BIN_NAME"
     rm -rf $LIB_DIR $CACHE_DIR
 }
 
@@ -35,9 +35,14 @@ go build -o $BIN_NAME ../cmd/kopds
 
 # Create user via CLI
 echo "Creating test user..."
-KOPDS_DATABASE_PATH=$DB ./$BIN_NAME create-user "$USER" --password-stdin <<EOF
+CLI_OUTPUT=$(KOPDS_DATABASE_PATH=$DB ./$BIN_NAME create-user "$USER" --password-stdin <<EOF
 $PASS
 EOF
+)
+if [[ $CLI_OUTPUT != *"User '$USER' created/updated successfully."* ]]; then
+    echo "CLI user creation FAILED: $CLI_OUTPUT"
+    exit 1
+fi
 
 # Start server in background
 echo "Starting KOPDS server..."
