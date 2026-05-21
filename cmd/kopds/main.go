@@ -27,6 +27,8 @@ import (
 	"golang.org/x/term"
 )
 
+const appName = "kopds"
+
 func main() {
 	// 1. Load Config
 	cfg, err := config.Load()
@@ -57,7 +59,7 @@ func runCLI(cfg *config.Config) {
 	switch command {
 	case "create-user":
 		if len(os.Args) < 3 {
-			fmt.Printf("Usage: kopds %s <username> [--password-stdin]\n", command)
+			fmt.Printf("Usage: %s %s <username> [--password-stdin]\n", appName, command)
 			os.Exit(1)
 		}
 		username := os.Args[2]
@@ -70,14 +72,14 @@ func runCLI(cfg *config.Config) {
 		createUser(cfg, username, password)
 	case "delete-user":
 		if len(os.Args) < 3 {
-			fmt.Printf("Usage: kopds %s <username>\n", command)
+			fmt.Printf("Usage: %s %s <username>\n", appName, command)
 			os.Exit(1)
 		}
 		username := os.Args[2]
 		deleteUser(cfg, username)
 	case "change-password":
 		if len(os.Args) < 3 {
-			fmt.Printf("Usage: kopds %s <username> [--password-stdin]\n", command)
+			fmt.Printf("Usage: %s %s <username> [--password-stdin]\n", appName, command)
 			os.Exit(1)
 		}
 		username := os.Args[2]
@@ -97,10 +99,10 @@ func runCLI(cfg *config.Config) {
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  kopds                          Run the server")
-	fmt.Println("  kopds create-user <username>   Create a new user")
-	fmt.Println("  kopds delete-user <username>   Delete a user")
-	fmt.Println("  kopds change-password <user>   Change a user's password")
+	fmt.Printf("  %s                          Run the server\n", appName)
+	fmt.Printf("  %s create-user <username>   Create a new user\n", appName)
+	fmt.Printf("  %s delete-user <username>   Delete a user\n", appName)
+	fmt.Printf("  %s change-password <user>   Change a user's password\n", appName)
 	fmt.Println("\nOptions for user commands:")
 	fmt.Println("  --password-stdin                Read password from stdin")
 }
