@@ -61,46 +61,7 @@ func NewStorage(db *sql.DB) *Storage {
 
 // NewSQLite creates a new SQLite database connection.
 func NewSQLite(path string) (*sql.DB, error) {
-	// Ensure the parent directory of the database file exists.
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create database directory: %w", err)
-	}
-
-	// 3.1 Security: Ensure the database file is handled with 0600 permissions.
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create db file with 0600: %w", err)
-		}
-		file.Close()
-	} else if err == nil {
-		// Ensure existing file has 0600
-		if err := os.Chmod(path, 0600); err != nil {
-			return nil, fmt.Errorf("failed to chmod 0600 on existing db file: %w", err)
-		}
-	}
-
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
-	}
-
-	// 3.3 Synchronize SQLite PRAGMAs: Enable WAL mode
-	if _, err := db.Exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;"); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to enable WAL: %w", err)
-	}
-
-	// 3.3 Synchronize SQLite PRAGMAs: SetMaxOpenConns(1)
-	db.SetMaxOpenConns(1)
-
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-
-	return db, nil
+	return OpenSQLite(path, true)
 }
 
 // Migrate applies the schema to the database.
