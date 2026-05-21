@@ -154,6 +154,12 @@ func deleteUser(cfg *config.Config, username string) {
 	}
 	defer db.Close()
 
+	if err := database.Migrate(db); err != nil {
+		slog.Error("failed to run migrations", "username", username, "source", "CLI", "error", err)
+		fmt.Printf("Failed to run migrations: %v\n", err)
+		os.Exit(1)
+	}
+
 	userRepo := database.NewUserRepository(db)
 	if err := userRepo.DeleteUser(context.Background(), username); err != nil {
 		slog.Error("failed to delete user", "username", username, "source", "CLI", "error", err)
@@ -173,6 +179,12 @@ func changePassword(cfg *config.Config, username, password string) {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	if err := database.Migrate(db); err != nil {
+		slog.Error("failed to run migrations", "username", username, "source", "CLI", "error", err)
+		fmt.Printf("Failed to run migrations: %v\n", err)
+		os.Exit(1)
+	}
 
 	userRepo := database.NewUserRepository(db)
 	hash, err := api.HashPassword(password)
