@@ -87,7 +87,7 @@ func TestSyncEngine_Sync(t *testing.T) {
 
 	repo := database.NewBookRepository(repoDB)
 	l := logger.New("debug", false, "")
-	engine := NewSyncEngine(repo, tmpCalibreDir, l)
+	engine := NewSyncEngine(repo, tmpCalibreDir, repoDBPath, 0, l)
 
 	ctx := context.Background()
 
