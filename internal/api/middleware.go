@@ -19,7 +19,7 @@ func (h *Handler) BasicAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		if !CheckPasswordHash(password, user.Password) {
+		if !CheckPassword(user.Password, password) {
 			h.unauthorized(w)
 			return
 		}
