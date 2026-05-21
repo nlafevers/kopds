@@ -4,9 +4,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// HashPassword returns the bcrypt hash of the password.
+// HashPassword generates a bcrypt hash of the password using cost 12.
 func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(bytes), err
 }
 
