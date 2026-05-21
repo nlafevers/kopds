@@ -2,6 +2,10 @@
 
 KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution System) server designed specifically for self-hosting Calibre libraries. It is optimized for large libraries (10,000+ books) hosted on high-latency network shares (e.g., Nextcloud, SMB, NFS) and is tailored for the KOReader ecosystem.
 
+## Cross-Project Uniformity
+
+KOPDS is maintained alongside KOSYNC with a maximum-uniformity goal. Functions that perform the same job in both repositories should use the same names and identical code wherever practical. See `UNIFORMITY.md` for the current inventory and boundaries. Keep CLI user management, password helpers, logger construction, config path resolution, SQLite opening, and storage-cap helper flow aligned unless a documented project-specific domain difference requires divergence.
+
 ## Project Overview
 
 - **Purpose:** Provide a fast, reliable KOReader compatible OPDS 1.2 interface to a Calibre library.
