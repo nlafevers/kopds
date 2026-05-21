@@ -158,6 +158,24 @@ func Migrate(db *sql.DB) error {
 
 // EnforceStorageCap checks if the database file exceeds the size limit.
 func (s *Storage) EnforceStorageCap(path string, capMB int) (bool, error) {
+	return enforceStorageCap(path, capMB, func() error {
+		// Delete oldest 20% of sync state records (as a proxy for progress/old entries).
+		_, err := s.db.Exec(`
+		DELETE FROM sync_state
+		WHERE key IN (
+			SELECT key
+			FROM sync_state
+			ORDER BY key ASC
+			LIMIT (SELECT COUNT(*) / 5 FROM sync_state) + 1
+		)`)
+		return err
+	}, func() error {
+		_, err := s.db.Exec("VACUUM")
+		return err
+	})
+}
+
+func enforceStorageCap(path string, capMB int, prune func() error, vacuum func() error) (bool, error) {
 	if capMB <= 0 {
 		return false, nil
 	}
@@ -171,19 +189,13 @@ func (s *Storage) EnforceStorageCap(path string, capMB int) (bool, error) {
 		return false, nil
 	}
 
-	// Delete oldest 20% of sync state records (as a proxy for progress/old entries).
-	_, err = s.db.Exec(`
-		DELETE FROM sync_state 
-		WHERE key IN (
-			SELECT key 
-			FROM sync_state 
-			ORDER BY key ASC 
-			LIMIT (SELECT COUNT(*) / 5 FROM sync_state) + 1
-		)`)
-	if err != nil {
+	if err := prune(); err != nil {
 		return false, err
 	}
 
-	_, err = s.db.Exec("VACUUM")
-	return true, err
+	if err := vacuum(); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
