@@ -226,7 +226,7 @@ KOPDS includes a built-in CLI for managing users securely without exposing passw
 ```bash
 ./kopds create-user <username>
 ```
-You will be prompted to enter and confirm a password. The characters will not be visible.
+You will be prompted to enter and confirm a password. The characters will not be visible. If the user already exists, the password is updated.
 
 ### Change a Password
 ```bash
@@ -245,6 +245,8 @@ For Docker initialization or scripts, you can use the `--password-stdin` flag:
 ```bash
 echo "mypassword" | ./kopds create-user admin --password-stdin
 ```
+
+User-management commands create and migrate the configured database automatically, so initial setup can create the first user before the server has been started.
 
 ---
 
