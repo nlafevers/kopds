@@ -7,16 +7,12 @@ import (
 	"testing"
 
 	"github.com/nlafevers/kopds/internal/domain"
-	"github.com/nlafevers/kopds/pkg/utils"
 )
-
 func TestBasicAuth(t *testing.T) {
 	password := "secret"
 	hash, _ := HashPassword(password)
 
-	linkGen := utils.NewLinkGenerator("http://localhost:8080")
-	userRepo := &mockUserRepo{
-		getByUsernameFunc: func(ctx context.Context, username string) (*domain.User, error) {
+	userRepo := &mockUserRepo{		getByUsernameFunc: func(ctx context.Context, username string) (*domain.User, error) {
 			if username == "admin" {
 				return &domain.User{Username: "admin", Password: hash}, nil
 			}
@@ -24,15 +20,11 @@ func TestBasicAuth(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(nil, userRepo, linkGen, nil, "")
-
-	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	authMiddleware := h.BasicAuth(nextHandler)
-
+	authMiddleware := BasicAuth(userRepo, nextHandler)
 	tests := []struct {
 		name           string
 		username       string

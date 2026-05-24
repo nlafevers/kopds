@@ -36,17 +36,14 @@ func TestOPDSIntegration(t *testing.T) {
 	svc := service.NewBookService(repo, linkGen)
 	h := NewHandler(svc, nil, linkGen, nil, "")
 
-	r := chi.NewRouter()
-	r.Route("/opds/v1.2", func(r chi.Router) {
-		r.Get("/catalog", h.NavigationFeedHandler)
-		r.Get("/authors", h.AuthorsFeedHandler)
-		r.Get("/series", h.SeriesFeedHandler)
-		r.Get("/newest", h.NewestFeedHandler)
-		r.Get("/books/{id}", h.BookDetailHandler)
-		r.Get("/search", h.SearchFeedHandler)
-		r.Get("/opensearch.xml", h.OpenSearchDescriptorHandler)
-	})
-
+	r := http.NewServeMux()
+	r.HandleFunc("GET /opds/v1.2/catalog", h.NavigationFeedHandler)
+	r.HandleFunc("GET /opds/v1.2/authors", h.AuthorsFeedHandler)
+	r.HandleFunc("GET /opds/v1.2/series", h.SeriesFeedHandler)
+	r.HandleFunc("GET /opds/v1.2/newest", h.NewestFeedHandler)
+	r.HandleFunc("GET /opds/v1.2/books/{id}", h.BookDetailHandler)
+	r.HandleFunc("GET /opds/v1.2/search", h.SearchFeedHandler)
+	r.HandleFunc("GET /opds/v1.2/opensearch.xml", h.OpenSearchDescriptorHandler)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 

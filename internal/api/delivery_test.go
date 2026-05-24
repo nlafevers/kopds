@@ -69,15 +69,12 @@ func TestDeliveryIntegration(t *testing.T) {
 	imageCache, _ := img.NewDiskCache(cachePath, 10)
 	h := NewHandler(svc, nil, linkGen, imageCache, libraryPath)
 
-	r := chi.NewRouter()
-	r.Route("/opds/v1.2", func(r chi.Router) {
-		r.Get("/cover/{id}", h.CoverHandler)
-		r.Get("/download/{id}/{format}", h.BookFileHandler)
-	})
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/cover/{id}", h.CoverHandler)
+	mux.HandleFunc("GET /opds/v1.2/download/{id}/{format}", h.BookFileHandler)
 
-	ts := httptest.NewServer(r)
+	ts := httptest.NewServer(mux)
 	defer ts.Close()
-
 	// 3. Test CoverHandler
 	t.Run("CoverHandler", func(t *testing.T) {
 		res, err := http.Get(ts.URL + "/opds/v1.2/cover/1?w=100&h=150")
@@ -165,13 +162,12 @@ func TestBookFileHandlerRejectsEscapingPaths(t *testing.T) {
 	svc := service.NewBookService(repo, linkGen)
 	h := NewHandler(svc, nil, linkGen, nil, libraryPath)
 
-	r := chi.NewRouter()
-	r.Get("/opds/v1.2/download/{id}/{format}", h.BookFileHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/download/{id}/{format}", h.BookFileHandler)
 
 	req := httptest.NewRequest("GET", "/opds/v1.2/download/1/epub", nil)
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
-
+	mux.ServeHTTP(rr, req)
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("expected escaping path to return 404, got %d", rr.Code)
 	}
@@ -205,13 +201,12 @@ func TestBookFileHandlerRejectsFormatPathSeparators(t *testing.T) {
 	svc := service.NewBookService(repo, linkGen)
 	h := NewHandler(svc, nil, linkGen, nil, libraryPath)
 
-	r := chi.NewRouter()
-	r.Get("/opds/v1.2/download/{id}/{format}", h.BookFileHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/download/{id}/{format}", h.BookFileHandler)
 
 	req := httptest.NewRequest("GET", "/opds/v1.2/download/1/epub", nil)
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
-
+	mux.ServeHTTP(rr, req)
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("expected invalid format name to return 404, got %d", rr.Code)
 	}
@@ -242,13 +237,12 @@ func TestCoverHandlerRejectsEscapingPath(t *testing.T) {
 	svc := service.NewBookService(repo, linkGen)
 	h := NewHandler(svc, nil, linkGen, cache, libraryPath)
 
-	r := chi.NewRouter()
-	r.Get("/opds/v1.2/cover/{id}", h.CoverHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/cover/{id}", h.CoverHandler)
 
 	req := httptest.NewRequest("GET", "/opds/v1.2/cover/1", nil)
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
-
+	mux.ServeHTTP(rr, req)
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("expected escaping cover path to return 404, got %d", rr.Code)
 	}
