@@ -2,25 +2,27 @@ package api
 
 import (
 	"net/http"
+
+	"github.com/nlafevers/kopds/internal/domain"
 )
 
 // BasicAuth middleware performs HTTP Basic Authentication.
-func (h *Handler) BasicAuth(next http.Handler) http.Handler {
+func BasicAuth(userRepo domain.UserRepository, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username, password, ok := r.BasicAuth()
 		if !ok {
-			h.unauthorized(w)
+			unauthorized(w)
 			return
 		}
 
-		user, err := h.UserRepo.GetByUsername(r.Context(), username)
+		user, err := userRepo.GetByUsername(r.Context(), username)
 		if err != nil || user == nil {
-			h.unauthorized(w)
+			unauthorized(w)
 			return
 		}
 
 		if !CheckPassword(user.Password, password) {
-			h.unauthorized(w)
+			unauthorized(w)
 			return
 		}
 
@@ -28,7 +30,7 @@ func (h *Handler) BasicAuth(next http.Handler) http.Handler {
 	})
 }
 
-func (h *Handler) unauthorized(w http.ResponseWriter) {
+func unauthorized(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="KOPDS"`)
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
 }

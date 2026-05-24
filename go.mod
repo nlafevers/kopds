@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/disintegration/imaging v1.6.2
-	github.com/go-chi/chi/v5 v5.2.5
+	github.com/go-chi/chi/v5 v5.3.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/spf13/viper v1.21.0
 	golang.org/x/crypto v0.50.0

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/nlafevers/kopds/internal/domain"
 	"github.com/nlafevers/kopds/internal/image"
 	"github.com/nlafevers/kopds/internal/opds"
@@ -638,9 +637,9 @@ func TestCoverHandler(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/opds/v1.2/cover/2", nil)
 	rr := httptest.NewRecorder()
 
-	r := chi.NewRouter()
-	r.Get("/opds/v1.2/cover/{id}", h.CoverHandler)
-	r.ServeHTTP(rr, req)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/cover/{id}", h.CoverHandler)
+	mux.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404 for missing book, got %d", rr.Code)
@@ -649,7 +648,7 @@ func TestCoverHandler(t *testing.T) {
 	// Test Invalid ID
 	req, _ = http.NewRequest("GET", "/opds/v1.2/cover/abc", nil)
 	rr = httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
+	mux.ServeHTTP(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for invalid ID, got %d", rr.Code)
 	}
@@ -657,7 +656,7 @@ func TestCoverHandler(t *testing.T) {
 	// Test Invalid Dimensions
 	req, _ = http.NewRequest("GET", "/opds/v1.2/cover/1?w=9999&h=150", nil)
 	rr = httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
+	mux.ServeHTTP(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for invalid dimensions, got %d", rr.Code)
 	}

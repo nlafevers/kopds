@@ -13,8 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nlafevers/kopds/internal/api"
 	"github.com/nlafevers/kopds/internal/config"
 	"github.com/nlafevers/kopds/internal/database"
@@ -299,41 +297,35 @@ func runServer(cfg *config.Config, log *slog.Logger) {
 	h := api.NewHandler(bookService, userRepo, linkGen, imageCache, cfg.LibraryPath)
 
 	// 7. Setup Router
-	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.GetHead)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
+	mux := http.NewServeMux()
 
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
 	// OPDS Routes
-	r.Route("/opds/v1.2", func(r chi.Router) {
-		r.Use(h.BasicAuth)
-		r.Get("/catalog", h.NavigationFeedHandler)
-		r.Get("/authors", h.AuthorsFeedHandler)
-		r.Get("/authors/{id}", h.AuthorBooksHandler)
-		r.Get("/series", h.SeriesFeedHandler)
-		r.Get("/series/{id}", h.SeriesBooksHandler)
-		r.Get("/tags", h.TagsFeedHandler)
-		r.Get("/tags/{id}", h.TagBooksHandler)
-		r.Get("/newest", h.NewestFeedHandler)
-		r.Get("/books/{id}", h.BookDetailHandler)
-		r.Get("/search", h.SearchFeedHandler)
-		r.Get("/cover/{id}", h.CoverHandler)
-		r.Get("/download/{id}/{format}", h.BookFileHandler)
-		r.Get("/opensearch.xml", h.OpenSearchDescriptorHandler)
-	})
+	protected := http.NewServeMux()
+	protected.HandleFunc("GET /opds/v1.2/catalog", h.NavigationFeedHandler)
+	protected.HandleFunc("GET /opds/v1.2/authors", h.AuthorsFeedHandler)
+	protected.HandleFunc("GET /opds/v1.2/authors/{id}", h.AuthorBooksHandler)
+	protected.HandleFunc("GET /opds/v1.2/series", h.SeriesFeedHandler)
+	protected.HandleFunc("GET /opds/v1.2/series/{id}", h.SeriesBooksHandler)
+	protected.HandleFunc("GET /opds/v1.2/tags", h.TagsFeedHandler)
+	protected.HandleFunc("GET /opds/v1.2/tags/{id}", h.TagBooksHandler)
+	protected.HandleFunc("GET /opds/v1.2/newest", h.NewestFeedHandler)
+	protected.HandleFunc("GET /opds/v1.2/books/{id}", h.BookDetailHandler)
+	protected.HandleFunc("GET /opds/v1.2/search", h.SearchFeedHandler)
+	protected.HandleFunc("GET /opds/v1.2/cover/{id}", h.CoverHandler)
+	protected.HandleFunc("GET /opds/v1.2/download/{id}/{format}", h.BookFileHandler)
+	protected.HandleFunc("GET /opds/v1.2/opensearch.xml", h.OpenSearchDescriptorHandler)
+
+	mux.Handle("/opds/v1.2/", api.BasicAuth(userRepo, protected))
 
 	// 8. Start Server
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: r,
+		Handler: mux,
 	}
 
 	go func() {

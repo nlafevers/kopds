@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/nlafevers/kopds/internal/domain"
 	"github.com/nlafevers/kopds/internal/image"
 	"github.com/nlafevers/kopds/internal/opds"
@@ -277,7 +276,7 @@ func (h *Handler) NewestFeedHandler(w http.ResponseWriter, r *http.Request) {
 
 // AuthorBooksHandler returns a paginated list of books by a specific author.
 func (h *Handler) AuthorBooksHandler(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
+	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	page := getPage(r)
 
@@ -298,7 +297,7 @@ func (h *Handler) AuthorBooksHandler(w http.ResponseWriter, r *http.Request) {
 
 // SeriesBooksHandler returns a paginated list of books in a specific series.
 func (h *Handler) SeriesBooksHandler(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
+	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	page := getPage(r)
 
@@ -319,7 +318,7 @@ func (h *Handler) SeriesBooksHandler(w http.ResponseWriter, r *http.Request) {
 
 // TagBooksHandler returns a paginated list of books with a specific tag.
 func (h *Handler) TagBooksHandler(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
+	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	page := getPage(r)
 
@@ -340,7 +339,7 @@ func (h *Handler) TagBooksHandler(w http.ResponseWriter, r *http.Request) {
 
 // BookDetailHandler returns a detail entry for a specific book.
 func (h *Handler) BookDetailHandler(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
+	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 
 	book, err := h.BookService.GetBookByID(r.Context(), id)
@@ -396,7 +395,7 @@ func (h *Handler) SearchFeedHandler(w http.ResponseWriter, r *http.Request) {
 
 // CoverHandler serves the cover image for a book, resizing it if necessary and caching the result.
 func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
+	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
@@ -462,14 +461,14 @@ func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
 
 // BookFileHandler streams a book file in the requested format.
 func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
+	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
 		return
 	}
 
-	requestedFormat := strings.ToUpper(chi.URLParam(r, "format"))
+	requestedFormat := strings.ToUpper(r.PathValue("format"))
 	if requestedFormat == "" {
 		http.Error(w, "Format is required", http.StatusBadRequest)
 		return

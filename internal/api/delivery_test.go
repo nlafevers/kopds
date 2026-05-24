@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/nlafevers/kopds/internal/domain"
 	img "github.com/nlafevers/kopds/internal/image"
 	"github.com/nlafevers/kopds/internal/service"

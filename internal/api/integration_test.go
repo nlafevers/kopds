@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/nlafevers/kopds/internal/domain"
 	"github.com/nlafevers/kopds/internal/opds"
 	"github.com/nlafevers/kopds/internal/service"
