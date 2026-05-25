@@ -129,20 +129,24 @@ func createUser(cfg *config.Config, username, password string) {
 	}
 
 	user := &domain.User{
-		Username: username,
-		Password: hash,
+	        Username: username,
+	        Password: hash,
 	}
 
-	if err := userRepo.Save(context.Background(), user); err != nil {
-		slog.Error("failed to save user", "username", username, "source", "CLI", "error", err)
-		fmt.Printf("Failed to save user: %v\n", err)
-		os.Exit(1)
+	if err := userRepo.CreateUserIfNotExists(context.Background(), user); err != nil {
+	        if err.Error() == "user already exists" {
+	                slog.Warn("user already exists", "username", username, "source", "CLI")
+	                fmt.Printf("Error: User '%s' already exists\n", username)
+	                os.Exit(1)
+	        }
+	        slog.Error("failed to save user", "username", username, "source", "CLI", "error", err)
+	        fmt.Printf("Failed to save user: %v\n", err)
+	        os.Exit(1)
 	}
 
 	slog.Info("user created successfully", "username", username, "source", "CLI")
-	fmt.Printf("User '%s' created/updated successfully.\n", username)
-}
-
+	fmt.Printf("User '%s' created successfully.\n", username)
+	}
 func deleteUser(cfg *config.Config, username string) {
 	db, err := database.NewSQLite(cfg.DatabasePath)
 	if err != nil {
