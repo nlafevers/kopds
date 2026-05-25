@@ -31,17 +31,33 @@ func (r *sqliteUserRepository) GetByUsername(ctx context.Context, username strin
 }
 
 func (r *sqliteUserRepository) Save(ctx context.Context, user *domain.User) error {
-	query := `
-		INSERT INTO users (username, password) VALUES (?, ?)
-		ON CONFLICT(username) DO UPDATE SET password=excluded.password
-		RETURNING id`
-	err := r.db.QueryRowContext(ctx, query, user.Username, user.Password).Scan(&user.ID)
-	if err != nil {
-		return fmt.Errorf("failed to save user: %w", err)
-	}
-	return nil
+        query := `
+                INSERT INTO users (username, password) VALUES (?, ?)
+                ON CONFLICT(username) DO UPDATE SET password=excluded.password
+                RETURNING id`
+        err := r.db.QueryRowContext(ctx, query, user.Username, user.Password).Scan(&user.ID)
+        if err != nil {
+                return fmt.Errorf("failed to save user: %w", err)
+        }
+        return nil
 }
 
+func (r *sqliteUserRepository) CreateUserIfNotExists(ctx context.Context, user *domain.User) error {
+        existing, err := r.GetByUsername(ctx, user.Username)
+        if err != nil {
+                return err
+        }
+        if existing != nil {
+                return fmt.Errorf("user already exists")
+        }
+
+        query := `INSERT INTO users (username, password) VALUES (?, ?) RETURNING id`
+        err = r.db.QueryRowContext(ctx, query, user.Username, user.Password).Scan(&user.ID)
+        if err != nil {
+                return fmt.Errorf("failed to create user: %w", err)
+        }
+        return nil
+}
 func (r *sqliteUserRepository) DeleteUser(ctx context.Context, username string) error {
 	res, err := r.db.ExecContext(ctx, "DELETE FROM users WHERE username = ?", username)
 	if err != nil {
