@@ -328,10 +328,9 @@ func runServer(cfg *config.Config, log *slog.Logger) {
 
 	// 8. Start Server
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: mux,
+	        Addr:    fmt.Sprintf(":%d", cfg.Port),
+	        Handler: api.LoggingMiddleware(mux),
 	}
-
 	go func() {
 		log.Info("Server listening", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
