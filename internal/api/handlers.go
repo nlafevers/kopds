@@ -126,16 +126,8 @@ func (h *Handler) NavigationFeedHandler(w http.ResponseWriter, r *http.Request) 
 		}
 		feed.Entries = append(feed.Entries, entry)
 	}
-
-	w.Header().Set("Content-Type", "application/atom+xml;profile=opds-catalog;kind=navigation;charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-
-	w.Write([]byte(xml.Header))
-	if err := xml.NewEncoder(w).Encode(feed); err != nil {
-		http.Error(w, "Failed to encode feed", http.StatusInternalServerError)
-	}
+	h.sendFeed(w, r, feed)
 }
-
 func (h *Handler) addSearchLink(feed *opds.Feed) {
 	feed.Links = append(feed.Links, opds.Link{
 		Rel:   "search",
@@ -150,6 +142,7 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 	page := getPage(r)
 	authors, total, err := h.BookService.GetAuthors(r.Context(), page)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -178,15 +171,14 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		feed.Entries = append(feed.Entries, entry)
 	}
-
-	h.sendFeed(w, feed)
+	h.sendFeed(w, r, feed)
 }
-
 // SeriesFeedHandler returns a paginated list of series in the OPDS catalog.
 func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 	page := getPage(r)
 	series, total, err := h.BookService.GetSeries(r.Context(), page)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -215,15 +207,14 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		feed.Entries = append(feed.Entries, entry)
 	}
-
-	h.sendFeed(w, feed)
+	h.sendFeed(w, r, feed)
 }
-
 // TagsFeedHandler returns a paginated list of tags in the OPDS catalog.
 func (h *Handler) TagsFeedHandler(w http.ResponseWriter, r *http.Request) {
 	page := getPage(r)
 	tags, total, err := h.BookService.GetTags(r.Context(), page)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -252,15 +243,14 @@ func (h *Handler) TagsFeedHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		feed.Entries = append(feed.Entries, entry)
 	}
-
-	h.sendFeed(w, feed)
+	h.sendFeed(w, r, feed)
 }
-
 // NewestFeedHandler returns a paginated list of the newest books in the OPDS catalog.
 func (h *Handler) NewestFeedHandler(w http.ResponseWriter, r *http.Request) {
 	page := getPage(r)
 	books, total, err := h.BookService.GetRecentBooks(r.Context(), page)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -271,7 +261,7 @@ func (h *Handler) NewestFeedHandler(w http.ResponseWriter, r *http.Request) {
 	h.addSearchLink(&feed)
 
 	h.appendBookEntries(&feed, books)
-	h.sendFeed(w, feed)
+	h.sendFeed(w, r, feed)
 }
 
 // AuthorBooksHandler returns a paginated list of books by a specific author.
@@ -282,6 +272,7 @@ func (h *Handler) AuthorBooksHandler(w http.ResponseWriter, r *http.Request) {
 
 	books, total, err := h.BookService.GetBooksByAuthor(r.Context(), id, page)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -292,7 +283,7 @@ func (h *Handler) AuthorBooksHandler(w http.ResponseWriter, r *http.Request) {
 	feed := opds.NewFeed("Books by Author", "author-books-"+idStr, links)
 
 	h.appendBookEntries(&feed, books)
-	h.sendFeed(w, feed)
+	h.sendFeed(w, r, feed)
 }
 
 // SeriesBooksHandler returns a paginated list of books in a specific series.
@@ -303,6 +294,7 @@ func (h *Handler) SeriesBooksHandler(w http.ResponseWriter, r *http.Request) {
 
 	books, total, err := h.BookService.GetBooksBySeries(r.Context(), id, page)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -313,7 +305,7 @@ func (h *Handler) SeriesBooksHandler(w http.ResponseWriter, r *http.Request) {
 	feed := opds.NewFeed("Books in Series", "series-books-"+idStr, links)
 
 	h.appendBookEntries(&feed, books)
-	h.sendFeed(w, feed)
+	h.sendFeed(w, r, feed)
 }
 
 // TagBooksHandler returns a paginated list of books with a specific tag.
@@ -324,6 +316,7 @@ func (h *Handler) TagBooksHandler(w http.ResponseWriter, r *http.Request) {
 
 	books, total, err := h.BookService.GetBooksByTag(r.Context(), id, page)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -334,7 +327,7 @@ func (h *Handler) TagBooksHandler(w http.ResponseWriter, r *http.Request) {
 	feed := opds.NewFeed("Books with Tag", "tag-books-"+idStr, links)
 
 	h.appendBookEntries(&feed, books)
-	h.sendFeed(w, feed)
+	h.sendFeed(w, r, feed)
 }
 
 // BookDetailHandler returns a detail entry for a specific book.
@@ -344,6 +337,7 @@ func (h *Handler) BookDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	book, err := h.BookService.GetBookByID(r.Context(), id)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -361,7 +355,7 @@ func (h *Handler) BookDetailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	feed := opds.NewFeed(book.Title, "book-detail-"+idStr, links)
 	h.appendBookEntries(&feed, []domain.Book{*book})
-	h.sendFeed(w, feed)
+	h.sendFeed(w, r, feed)
 }
 
 // SearchFeedHandler returns a paginated list of books matching the search query.
@@ -372,12 +366,13 @@ func (h *Handler) SearchFeedHandler(w http.ResponseWriter, r *http.Request) {
 	if query == "" {
 		// Return empty feed or bad request? Standard OPDS usually just returns empty feed.
 		feed := opds.NewFeed("Search Results", "search-results", nil)
-		h.sendFeed(w, feed)
+		h.sendFeed(w, r, feed)
 		return
 	}
 
 	books, total, err := h.BookService.SearchBooks(r.Context(), query, page)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -390,7 +385,7 @@ func (h *Handler) SearchFeedHandler(w http.ResponseWriter, r *http.Request) {
 	feed := opds.NewFeed("Search Results: "+query, "search-results", links)
 
 	h.appendBookEntries(&feed, books)
-	h.sendFeed(w, feed)
+	h.sendFeed(w, r, feed)
 }
 
 // CoverHandler serves the cover image for a book, resizing it if necessary and caching the result.
@@ -398,28 +393,31 @@ func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
+		GetLogger(r.Context()).Warn("invalid book ID", "id", idStr)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
 		return
 	}
-
 	width, height, err := getCoverDimensions(r)
 	if err != nil {
+		GetLogger(r.Context()).Warn("invalid cover dimensions", "error", err)
 		http.Error(w, "Invalid cover dimensions", http.StatusBadRequest)
 		return
 	}
-
 	cacheKey := fmt.Sprintf("%s_%dx%d.jpg", idStr, width, height)
 	data, err := h.ImageCache.Get(cacheKey)
 	if err == nil {
+		GetLogger(r.Context()).Debug("image cache hit", "key", cacheKey)
 		w.Header().Set("Content-Type", "image/jpeg")
 		w.Header().Set("Cache-Control", "public, max-age=604800") // 1 week
 		w.Write(data)
 		return
 	}
 
+	GetLogger(r.Context()).Debug("image cache miss", "key", cacheKey)
 	// Not in cache, resize
 	book, err := h.BookService.GetBookByID(r.Context(), id)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -439,6 +437,7 @@ func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
+		GetLogger(r.Context()).Error("failed to open cover", "path", coverPath, "error", err)
 		http.Error(w, "Failed to open cover", http.StatusInternalServerError)
 		return
 	}
@@ -446,14 +445,14 @@ func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
 
 	resizedData, err := image.Resize(file, width, height)
 	if err != nil {
+		GetLogger(r.Context()).Error("failed to resize image", "error", err)
 		http.Error(w, "Failed to resize image", http.StatusInternalServerError)
 		return
 	}
 
 	if err := h.ImageCache.Put(cacheKey, resizedData); err != nil {
-		// We could log this, but we'll still serve the image
+		GetLogger(r.Context()).Warn("failed to cache resized image", "key", cacheKey, "error", err)
 	}
-
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Cache-Control", "public, max-age=604800") // 1 week
 	w.Write(resizedData)
@@ -464,18 +463,19 @@ func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
+		GetLogger(r.Context()).Warn("invalid book ID", "id", idStr)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
 		return
 	}
-
 	requestedFormat := strings.ToUpper(r.PathValue("format"))
 	if requestedFormat == "" {
+		GetLogger(r.Context()).Warn("format is required")
 		http.Error(w, "Format is required", http.StatusBadRequest)
 		return
 	}
-
 	book, err := h.BookService.GetBookByID(r.Context(), id)
 	if err != nil {
+		GetLogger(r.Context()).Error("handler error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -493,10 +493,10 @@ func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if targetFormat == nil {
+		GetLogger(r.Context()).Warn("format not found for book", "id", id, "format", requestedFormat)
 		http.Error(w, "Format not found for this book", http.StatusNotFound)
 		return
 	}
-
 	fileName, err := formatFileName(targetFormat)
 	if err != nil {
 		http.NotFound(w, r)
@@ -510,10 +510,10 @@ func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		GetLogger(r.Context()).Warn("file not found on disk", "path", filePath)
 		http.Error(w, "File not found on disk", http.StatusNotFound)
 		return
 	}
-
 	w.Header().Set("Content-Type", getMimeType(targetFormat.Format))
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": fileName}))
 
@@ -540,6 +540,7 @@ func (h *Handler) OpenSearchDescriptorHandler(w http.ResponseWriter, r *http.Req
 
 	w.Write([]byte(xml.Header))
 	if err := xml.NewEncoder(w).Encode(osd); err != nil {
+		GetLogger(r.Context()).Error("failed to encode OpenSearch Description", "error", err)
 		http.Error(w, "Failed to encode OpenSearch Description", http.StatusInternalServerError)
 	}
 }
@@ -703,16 +704,19 @@ func (h *Handler) appendBookEntries(feed *opds.Feed, books []domain.Book) {
 	}
 }
 
-func (h *Handler) sendFeed(w http.ResponseWriter, feed opds.Feed) {
+func (h *Handler) sendFeed(w http.ResponseWriter, r *http.Request, feed opds.Feed) {
+	log := GetLogger(r.Context())
 	w.Header().Set("Content-Type", "application/atom+xml;profile=opds-catalog;kind=navigation;charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
 	w.Write([]byte(xml.Header))
 	if err := xml.NewEncoder(w).Encode(feed); err != nil {
+		log.Error("failed to encode feed", "error", err)
 		http.Error(w, "Failed to encode feed", http.StatusInternalServerError)
+		return
 	}
+	log.Info("feed served", "title", feed.Title)
 }
-
 func getMimeType(format string) string {
 	switch strings.ToLower(format) {
 	case "epub":

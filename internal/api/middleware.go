@@ -112,6 +112,7 @@ func BasicAuth(userRepo domain.UserRepository, next http.Handler) http.Handler {
 
 		// Store user in context
 		ctx := context.WithValue(r.Context(), ContextKeyUser, username)
+		GetLogger(ctx).Debug("auth success", "username", username, "auth_method", "Basic")
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
