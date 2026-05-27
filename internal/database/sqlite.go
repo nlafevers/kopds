@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -10,7 +11,8 @@ import (
 )
 
 type Storage struct {
-	db *sql.DB
+	db  *sql.DB
+	log *slog.Logger
 }
 
 func OpenSQLite(path string, allowCreate bool) (*sql.DB, error) {
@@ -55,8 +57,8 @@ func OpenSQLite(path string, allowCreate bool) (*sql.DB, error) {
 }
 
 // NewStorage creates a new storage wrapper.
-func NewStorage(db *sql.DB) *Storage {
-	return &Storage{db: db}
+func NewStorage(db *sql.DB, log *slog.Logger) *Storage {
+	return &Storage{db: db, log: log}
 }
 
 // NewSQLite creates a new SQLite database connection.
