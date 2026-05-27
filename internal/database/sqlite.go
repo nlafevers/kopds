@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -158,14 +159,66 @@ func Migrate(db *sql.DB) error {
 	return nil
 }
 
-// EnforceStorageCap checks if the database file exceeds the size limit.
-func (s *Storage) EnforceStorageCap(path string, capMB int) (bool, error) {
-	return enforceStorageCap(path, capMB, s.pruneStorageCapRecords, s.vacuum)
+func (s *Storage) logger() *slog.Logger {
+	if s != nil && s.log != nil {
+		return s.log
+	}
+	return slog.Default()
 }
 
-func (s *Storage) pruneStorageCapRecords() error {
-	// Delete oldest 20% of sync state records (as a proxy for progress/old entries).
-	_, err := s.db.Exec(`
+// EnforceStorageCap checks if the database file exceeds the size limit.
+func (s *Storage) EnforceStorageCap(path string, capMB int) (bool, error) {
+	log := s.logger()
+
+	info, err := os.Stat(path)
+	if err != nil {
+		log.Error("failed to inspect database file size", "database_path", path, "error", err)
+		return false, err
+	}
+
+	currentSizeMB := float64(info.Size()) / (1024 * 1024)
+	log.Debug("checking storage cap", "database_path", path, "current_size_mb", currentSizeMB, "cap_mb", capMB)
+
+	if info.Size() < int64(capMB)*1024*1024 {
+		return false, nil
+	}
+
+	log.Warn("storage cap exceeded", "database_path", path, "current_size_mb", currentSizeMB, "cap_mb", capMB)
+
+	pruned, err := enforceStorageCap(path, capMB, s.pruneStorageCapRecords, s.vacuum)
+	if err != nil {
+		log.Error("failed to enforce storage cap", "database_path", path, "current_size_mb", currentSizeMB, "cap_mb", capMB, "error", err)
+		return false, err
+	}
+
+	if pruned {
+		log.Info("storage cap enforced", "database_path", path, "current_size_mb", currentSizeMB, "cap_mb", capMB)
+	}
+
+	return pruned, nil
+}
+
+func (s *Storage) pruneStorageCapRecords() (int64, error) {
+	log := s.logger()
+
+	var rowCount int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM sync_state").Scan(&rowCount)
+	if err != nil {
+		log.Error("failed to count sync state rows for pruning", "error", err)
+		return 0, err
+	}
+
+	rowsTargeted := 0
+	if rowCount > 0 {
+		rowsTargeted = rowCount/5 + 1
+	}
+
+	if rowsTargeted > 0 {
+		log.Warn("pruning storage cap records", "rows_targeted", rowsTargeted)
+	}
+
+	start := time.Now()
+	res, err := s.db.Exec(`
 		DELETE FROM sync_state
 		WHERE key IN (
 			SELECT key
@@ -173,15 +226,39 @@ func (s *Storage) pruneStorageCapRecords() error {
 			ORDER BY key ASC
 			LIMIT (SELECT COUNT(*) / 5 FROM sync_state) + 1
 		)`)
-	return err
+	duration := time.Since(start)
+	if err != nil {
+		log.Error("failed to prune storage cap records", "rows_targeted", rowsTargeted, "duration", duration, "error", err)
+		return 0, err
+	}
+
+	rowsDeleted, err := res.RowsAffected()
+	if err != nil {
+		log.Error("failed to count pruned rows", "rows_targeted", rowsTargeted, "duration", duration, "error", err)
+		return 0, err
+	}
+
+	log.Info("storage cap records pruned", "rows_deleted", rowsDeleted, "rows_targeted", rowsTargeted, "duration", duration)
+	return rowsDeleted, nil
 }
 
 func (s *Storage) vacuum() error {
+	log := s.logger()
+	start := time.Now()
+	log.Debug("vacuuming database", "operation", "vacuum")
+
 	_, err := s.db.Exec("VACUUM")
-	return err
+	duration := time.Since(start)
+	if err != nil {
+		log.Error("database vacuum failed", "operation", "vacuum", "duration", duration, "error", err)
+		return err
+	}
+
+	log.Info("database vacuum completed", "operation", "vacuum", "duration", duration)
+	return nil
 }
 
-func enforceStorageCap(path string, capMB int, prune func() error, vacuum func() error) (bool, error) {
+func enforceStorageCap(path string, capMB int, prune func() (int64, error), vacuum func() error) (bool, error) {
 	if capMB <= 0 {
 		return false, nil
 	}
@@ -195,7 +272,7 @@ func enforceStorageCap(path string, capMB int, prune func() error, vacuum func()
 		return false, nil
 	}
 
-	if err := prune(); err != nil {
+	if _, err := prune(); err != nil {
 		return false, err
 	}
 

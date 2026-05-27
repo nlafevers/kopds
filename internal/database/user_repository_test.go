@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestUserRepository(t *testing.T) {
 		t.Fatalf("failed to migrate database: %v", err)
 	}
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, slog.Default())
 	ctx := context.Background()
 
 	user := &domain.User{

@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 		t.Fatalf("failed to migrate database: %v", err)
 	}
 
-	repo := NewBookRepository(db)
+	repo := NewBookRepository(db, slog.Default())
 	ctx := context.Background()
 
 	book := &domain.Book{

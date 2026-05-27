@@ -56,39 +56,40 @@ func runCLI(cfg *config.Config) {
 
 	switch command {
 	case "create-user":
-	        if len(os.Args) < 3 {
-	                fmt.Printf("Usage: %s %s <username> [--password-stdin]\n", appName, command)
-	                os.Exit(1)
-	        }
-	        username := os.Args[2]
-	        password, err := passwordFromArgs(os.Args[3:], os.Stdin, os.Stdout)
-	        if err != nil {
-	                logger.LogCLIFailure(nil, command, username, "failed to read password: "+err.Error())
-	                fmt.Printf("Failed to read password: %v\n", err)
-	                os.Exit(1)
-	        }
-	        createUser(cfg, username, password)
+		if len(os.Args) < 3 {
+			fmt.Printf("Usage: %s %s <username> [--password-stdin]\n", appName, command)
+			os.Exit(1)
+		}
+		username := os.Args[2]
+		password, err := passwordFromArgs(os.Args[3:], os.Stdin, os.Stdout)
+		if err != nil {
+			logger.LogCLIFailure(nil, command, username, "failed to read password: "+err.Error())
+			fmt.Printf("Failed to read password: %v\n", err)
+			os.Exit(1)
+		}
+		createUser(cfg, username, password)
 	case "delete-user":
-	        if len(os.Args) < 3 {
-	                fmt.Printf("Usage: %s %s <username>\n", appName, command)
-	                os.Exit(1)
-	        }
-	        username := os.Args[2]
-	        deleteUser(cfg, username)
+		if len(os.Args) < 3 {
+			fmt.Printf("Usage: %s %s <username>\n", appName, command)
+			os.Exit(1)
+		}
+		username := os.Args[2]
+		deleteUser(cfg, username)
 	case "change-password":
-	        if len(os.Args) < 3 {
-	                fmt.Printf("Usage: %s %s <username> [--password-stdin]\n", appName, command)
-	                os.Exit(1)
-	        }
-	        username := os.Args[2]
-	        password, err := passwordFromArgs(os.Args[3:], os.Stdin, os.Stdout)
-	        if err != nil {
-	                logger.LogCLIFailure(nil, command, username, "failed to read password: "+err.Error())
-	                fmt.Printf("Failed to read password: %v\n", err)
-	                os.Exit(1)
-	        }
-	        changePassword(cfg, username, password)
-	default:		fmt.Printf("Unknown command: %s\n", command)
+		if len(os.Args) < 3 {
+			fmt.Printf("Usage: %s %s <username> [--password-stdin]\n", appName, command)
+			os.Exit(1)
+		}
+		username := os.Args[2]
+		password, err := passwordFromArgs(os.Args[3:], os.Stdin, os.Stdout)
+		if err != nil {
+			logger.LogCLIFailure(nil, command, username, "failed to read password: "+err.Error())
+			fmt.Printf("Failed to read password: %v\n", err)
+			os.Exit(1)
+		}
+		changePassword(cfg, username, password)
+	default:
+		fmt.Printf("Unknown command: %s\n", command)
 		printUsage()
 		os.Exit(1)
 	}
@@ -105,107 +106,107 @@ func printUsage() {
 }
 
 func createUser(cfg *config.Config, username, password string) {
-        operation := "create-user"
-        db, err := database.NewSQLite(cfg.DatabasePath)
-        if err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
-                fmt.Printf("Failed to connect to database: %v\n", err)
-                os.Exit(1)
-        }
-        defer db.Close()
+	operation := "create-user"
+	db, err := database.NewSQLite(cfg.DatabasePath)
+	if err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
+		fmt.Printf("Failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
 
-        if err := database.Migrate(db); err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to run migrations: "+err.Error())
-                fmt.Printf("Failed to run migrations: %v\n", err)
-                os.Exit(1)
-        }
+	if err := database.Migrate(db); err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to run migrations: "+err.Error())
+		fmt.Printf("Failed to run migrations: %v\n", err)
+		os.Exit(1)
+	}
 
-        userRepo := database.NewUserRepository(db)
-        hash, err := api.HashPassword(password)
-        if err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to hash password: "+err.Error())
-                fmt.Printf("Failed to hash password: %v\n", err)
-                os.Exit(1)
-        }
+	userRepo := database.NewUserRepository(db, slog.Default())
+	hash, err := api.HashPassword(password)
+	if err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to hash password: "+err.Error())
+		fmt.Printf("Failed to hash password: %v\n", err)
+		os.Exit(1)
+	}
 
-        user := &domain.User{
-                Username: username,
-                Password: hash,
-        }
+	user := &domain.User{
+		Username: username,
+		Password: hash,
+	}
 
-        if err := userRepo.CreateUserIfNotExists(context.Background(), user); err != nil {
-                if err.Error() == "user already exists" {
-                        logger.LogCLIFailure(nil, operation, username, "user already exists")
-                        fmt.Printf("Error: User '%s' already exists\n", username)
-                        os.Exit(1)
-                }
-                logger.LogCLIFailure(nil, operation, username, "failed to save user: "+err.Error())
-                fmt.Printf("Failed to save user: %v\n", err)
-                os.Exit(1)
-        }
+	if err := userRepo.CreateUserIfNotExists(context.Background(), user); err != nil {
+		if err.Error() == "user already exists" {
+			logger.LogCLIFailure(nil, operation, username, "user already exists")
+			fmt.Printf("Error: User '%s' already exists\n", username)
+			os.Exit(1)
+		}
+		logger.LogCLIFailure(nil, operation, username, "failed to save user: "+err.Error())
+		fmt.Printf("Failed to save user: %v\n", err)
+		os.Exit(1)
+	}
 
-        logger.LogCLISuccess(nil, operation, username)
-        fmt.Printf("User '%s' created successfully.\n", username)
+	logger.LogCLISuccess(nil, operation, username)
+	fmt.Printf("User '%s' created successfully.\n", username)
 }
 
 func deleteUser(cfg *config.Config, username string) {
-        operation := "delete-user"
-        db, err := database.NewSQLite(cfg.DatabasePath)
-        if err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
-                fmt.Printf("Failed to connect to database: %v\n", err)
-                os.Exit(1)
-        }
-        defer db.Close()
+	operation := "delete-user"
+	db, err := database.NewSQLite(cfg.DatabasePath)
+	if err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
+		fmt.Printf("Failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
 
-        if err := database.Migrate(db); err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to run migrations: "+err.Error())
-                fmt.Printf("Failed to run migrations: %v\n", err)
-                os.Exit(1)
-        }
+	if err := database.Migrate(db); err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to run migrations: "+err.Error())
+		fmt.Printf("Failed to run migrations: %v\n", err)
+		os.Exit(1)
+	}
 
-        userRepo := database.NewUserRepository(db)
-        if err := userRepo.DeleteUser(context.Background(), username); err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to delete user: "+err.Error())
-                fmt.Printf("Failed to delete user: %v\n", err)
-                os.Exit(1)
-        }
+	userRepo := database.NewUserRepository(db, slog.Default())
+	if err := userRepo.DeleteUser(context.Background(), username); err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to delete user: "+err.Error())
+		fmt.Printf("Failed to delete user: %v\n", err)
+		os.Exit(1)
+	}
 
-        logger.LogCLISuccess(nil, operation, username)
-        fmt.Printf("User '%s' deleted successfully.\n", username)
+	logger.LogCLISuccess(nil, operation, username)
+	fmt.Printf("User '%s' deleted successfully.\n", username)
 }
 func changePassword(cfg *config.Config, username, password string) {
-        operation := "change-password"
-        db, err := database.NewSQLite(cfg.DatabasePath)
-        if err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
-                fmt.Printf("Failed to connect to database: %v\n", err)
-                os.Exit(1)
-        }
-        defer db.Close()
+	operation := "change-password"
+	db, err := database.NewSQLite(cfg.DatabasePath)
+	if err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
+		fmt.Printf("Failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
 
-        if err := database.Migrate(db); err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to run migrations: "+err.Error())
-                fmt.Printf("Failed to run migrations: %v\n", err)
-                os.Exit(1)
-        }
+	if err := database.Migrate(db); err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to run migrations: "+err.Error())
+		fmt.Printf("Failed to run migrations: %v\n", err)
+		os.Exit(1)
+	}
 
-        userRepo := database.NewUserRepository(db)
-        hash, err := api.HashPassword(password)
-        if err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to hash password: "+err.Error())
-                fmt.Printf("Failed to hash password: %v\n", err)
-                os.Exit(1)
-        }
+	userRepo := database.NewUserRepository(db, slog.Default())
+	hash, err := api.HashPassword(password)
+	if err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to hash password: "+err.Error())
+		fmt.Printf("Failed to hash password: %v\n", err)
+		os.Exit(1)
+	}
 
-        if err := userRepo.UpdatePassword(context.Background(), username, hash); err != nil {
-                logger.LogCLIFailure(nil, operation, username, "failed to update password: "+err.Error())
-                fmt.Printf("Failed to update password: %v\n", err)
-                os.Exit(1)
-        }
+	if err := userRepo.UpdatePassword(context.Background(), username, hash); err != nil {
+		logger.LogCLIFailure(nil, operation, username, "failed to update password: "+err.Error())
+		fmt.Printf("Failed to update password: %v\n", err)
+		os.Exit(1)
+	}
 
-        logger.LogCLISuccess(nil, operation, username)
-        fmt.Printf("Password for user '%s' updated successfully.\n", username)
+	logger.LogCLISuccess(nil, operation, username)
+	fmt.Printf("Password for user '%s' updated successfully.\n", username)
 }
 func passwordFromArgs(args []string, stdin io.Reader, stdout io.Writer) (string, error) {
 	switch len(args) {
@@ -340,8 +341,8 @@ func runServer(cfg *config.Config, log *slog.Logger) {
 
 	// 8. Start Server
 	srv := &http.Server{
-	        Addr:    fmt.Sprintf(":%d", cfg.Port),
-	        Handler: api.LoggingMiddleware(mux),
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Handler: api.LoggingMiddleware(mux),
 	}
 	go func() {
 		log.Info("Server listening", "port", cfg.Port)

@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -85,7 +86,7 @@ func TestSyncEngine_Sync(t *testing.T) {
 	defer os.Remove(repoDBPath)
 	defer repoDB.Close()
 
-	repo := database.NewBookRepository(repoDB)
+	repo := database.NewBookRepository(repoDB, slog.Default())
 	l := logger.New("debug", false, "")
 	engine := NewSyncEngine(repo, tmpCalibreDir, repoDBPath, 0, l)
 

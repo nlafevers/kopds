@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,79 +52,79 @@ func TestCLIUserManagement(t *testing.T) {
 	defer os.Unsetenv("KOPDS_DATABASE_PATH")
 
 	t.Run("Create User", func(t *testing.T) {
-	        cmd := exec.Command(exe, "create-user", "clitest", "--password-stdin")
-	        cmd.Stdin = bytes.NewBufferString("clipass\n")
-	        output, err := cmd.CombinedOutput()
-	        if err != nil {
-	                t.Fatalf("create-user failed: %v, output: %s", err, output)
-	        }
+		cmd := exec.Command(exe, "create-user", "clitest", "--password-stdin")
+		cmd.Stdin = bytes.NewBufferString("clipass\n")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("create-user failed: %v, output: %s", err, output)
+		}
 
-	        if bytes.Contains(output, []byte("Using database:")) || bytes.Contains(output, []byte("Using log:")) {
-	                t.Errorf("unexpected config path output: %s", output)
-	        }
-	        if !bytes.Contains(output, []byte("User 'clitest' created successfully.")) {
-	                t.Errorf("unexpected output: %s", output)
-	        }
+		if bytes.Contains(output, []byte("Using database:")) || bytes.Contains(output, []byte("Using log:")) {
+			t.Errorf("unexpected config path output: %s", output)
+		}
+		if !bytes.Contains(output, []byte("User 'clitest' created successfully.")) {
+			t.Errorf("unexpected output: %s", output)
+		}
 
-	        db, err := database.NewSQLite(dbPath)
-	        if err != nil {
-	                t.Fatalf("failed to open db: %v", err)
-	        }
-	        defer db.Close()
+		db, err := database.NewSQLite(dbPath)
+		if err != nil {
+			t.Fatalf("failed to open db: %v", err)
+		}
+		defer db.Close()
 
-	        repo := database.NewUserRepository(db)
-	        user, err := repo.GetByUsername(context.Background(), "clitest")
-	        if err != nil {
-	                t.Fatalf("failed to get user: %v", err)
-	        }
-	        if user == nil {
-	                t.Fatal("user not found in db")
-	        }
-	        if !api.CheckPassword(user.Password, "clipass") {
-	                t.Error("password mismatch")
-	        }
+		repo := database.NewUserRepository(db, slog.Default())
+		user, err := repo.GetByUsername(context.Background(), "clitest")
+		if err != nil {
+			t.Fatalf("failed to get user: %v", err)
+		}
+		if user == nil {
+			t.Fatal("user not found in db")
+		}
+		if !api.CheckPassword(user.Password, "clipass") {
+			t.Error("password mismatch")
+		}
 	})
 
 	t.Run("Change Password", func(t *testing.T) {
-	        cmd := exec.Command(exe, "change-password", "clitest", "--password-stdin")
-	        cmd.Stdin = bytes.NewBufferString("newclipass\n")
-	        output, err := cmd.CombinedOutput()
-	        if err != nil {
-	                t.Fatalf("change-password failed: %v, output: %s", err, output)
-	        }
+		cmd := exec.Command(exe, "change-password", "clitest", "--password-stdin")
+		cmd.Stdin = bytes.NewBufferString("newclipass\n")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("change-password failed: %v, output: %s", err, output)
+		}
 
-	        if !bytes.Contains(output, []byte("Password for user 'clitest' updated successfully.")) {
-	                t.Errorf("unexpected output: %s", output)
-	        }
+		if !bytes.Contains(output, []byte("Password for user 'clitest' updated successfully.")) {
+			t.Errorf("unexpected output: %s", output)
+		}
 
-	        db, _ := database.NewSQLite(dbPath)
-	        defer db.Close()
-	        repo := database.NewUserRepository(db)
-	        user, _ := repo.GetByUsername(context.Background(), "clitest")
-	        if !api.CheckPassword(user.Password, "newclipass") {
-	                t.Error("password update failed")
-	        }
+		db, _ := database.NewSQLite(dbPath)
+		defer db.Close()
+		repo := database.NewUserRepository(db, slog.Default())
+		user, _ := repo.GetByUsername(context.Background(), "clitest")
+		if !api.CheckPassword(user.Password, "newclipass") {
+			t.Error("password update failed")
+		}
 	})
 
 	t.Run("Create Existing User Fails", func(t *testing.T) {
-	        cmd := exec.Command(exe, "create-user", "clitest", "--password-stdin")
-	        cmd.Stdin = bytes.NewBufferString("failpass\n")
-	        output, err := cmd.CombinedOutput()
-	        if err == nil {
-	                t.Fatal("expected create existing user to fail, but it succeeded")
-	        }
+		cmd := exec.Command(exe, "create-user", "clitest", "--password-stdin")
+		cmd.Stdin = bytes.NewBufferString("failpass\n")
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatal("expected create existing user to fail, but it succeeded")
+		}
 
-	        if !bytes.Contains(output, []byte("Error: User 'clitest' already exists")) {
-	                t.Errorf("unexpected error message: %s", output)
-	        }
+		if !bytes.Contains(output, []byte("Error: User 'clitest' already exists")) {
+			t.Errorf("unexpected error message: %s", output)
+		}
 
-	        db, _ := database.NewSQLite(dbPath)
-	        defer db.Close()
-	        repo := database.NewUserRepository(db)
-	        user, _ := repo.GetByUsername(context.Background(), "clitest")
-	        if api.CheckPassword(user.Password, "failpass") {
-	                t.Error("password was updated for existing user")
-	        }
+		db, _ := database.NewSQLite(dbPath)
+		defer db.Close()
+		repo := database.NewUserRepository(db, slog.Default())
+		user, _ := repo.GetByUsername(context.Background(), "clitest")
+		if api.CheckPassword(user.Password, "failpass") {
+			t.Error("password was updated for existing user")
+		}
 	})
 	t.Run("Delete User", func(t *testing.T) {
 		cmd := exec.Command(exe, "delete-user", "clitest")
@@ -138,7 +139,7 @@ func TestCLIUserManagement(t *testing.T) {
 
 		db, _ := database.NewSQLite(dbPath)
 		defer db.Close()
-		repo := database.NewUserRepository(db)
+		repo := database.NewUserRepository(db, slog.Default())
 		user, err := repo.GetByUsername(context.Background(), "clitest")
 		if err != nil {
 			t.Fatalf("GetByUsername after delete failed: %v", err)
