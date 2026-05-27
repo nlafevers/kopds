@@ -25,6 +25,6 @@ KOPDS is maintained alongside KOSYNC with a maximum-uniformity goal. Functions t
 - **Code Style:** Follow standard Go idioms and `gofmt`.
 - **Concurrency:** Use background workers for indexing; ensure the API remains non-blocking.
 - **Database:** Treat the Calibre `metadata.db` as read-only. All writes must occur in the local index database.
-- **Error Handling:** Use structured logging with `rs/zerolog` and avoid swallowing errors.
+- **Error Handling:** Use structured logging with `log/slog` and avoid swallowing errors.
 - **Testing:** Aim for high unit test coverage in the `internal/domain` and `internal/opds` packages. Use a mock library for integration tests.
 - **Docker & Storage:** When containerized, ensure the local KOPDS SQLite index is stored on a local volume attached to the host, not on the mounted high-latency network share (SMB/NFS), to prevent SQLite database locking issues and corruption.
