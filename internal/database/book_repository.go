@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"unicode"
 
@@ -12,17 +13,19 @@ import (
 )
 
 type sqliteBookRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	log *slog.Logger
 }
 
 var ErrSearchQueryTooLong = errors.New("search query is too long")
 
 // NewBookRepository creates a new SQLite book repository.
-func NewBookRepository(db *sql.DB) domain.BookRepository {
-	return &sqliteBookRepository{db: db}
+func NewBookRepository(db *sql.DB, log *slog.Logger) domain.BookRepository {
+	return &sqliteBookRepository{db: db, log: log}
 }
 
 func (r *sqliteBookRepository) GetByID(ctx context.Context, id int64) (*domain.Book, error) {
+	r.log.Debug("getting book by id", "id", id)
 	query := `
 		SELECT 
 			b.id, b.uuid, b.title, b.sort, b.author_sort, b.timestamp, b.pub_date, 
@@ -45,6 +48,7 @@ func (r *sqliteBookRepository) GetByID(ctx context.Context, id int64) (*domain.B
 		return nil, nil
 	}
 	if err != nil {
+		r.log.Error("failed to get book by id", "id", id, "error", err)
 		return nil, fmt.Errorf("failed to get book: %w", err)
 	}
 
@@ -80,6 +84,7 @@ func (r *sqliteBookRepository) GetByID(ctx context.Context, id int64) (*domain.B
 }
 
 func (r *sqliteBookRepository) getAuthors(ctx context.Context, bookID int64) ([]domain.Author, error) {
+	r.log.Debug("getting authors for book", "book_id", bookID)
 	query := `
 		SELECT a.id, a.name, a.sort
 		FROM authors a
@@ -87,6 +92,7 @@ func (r *sqliteBookRepository) getAuthors(ctx context.Context, bookID int64) ([]
 		WHERE bal.book_id = ?`
 	rows, err := r.db.QueryContext(ctx, query, bookID)
 	if err != nil {
+		r.log.Error("failed to get authors for book", "book_id", bookID, "error", err)
 		return nil, fmt.Errorf("failed to get authors: %w", err)
 	}
 	defer rows.Close()
@@ -95,17 +101,20 @@ func (r *sqliteBookRepository) getAuthors(ctx context.Context, bookID int64) ([]
 	for rows.Next() {
 		var a domain.Author
 		if err := rows.Scan(&a.ID, &a.Name, &a.Sort); err != nil {
+			r.log.Error("failed to scan author row", "book_id", bookID, "error", err)
 			return nil, err
 		}
 		authors = append(authors, a)
 	}
 	if err := rows.Err(); err != nil {
+		r.log.Error("error during author row iteration", "book_id", bookID, "error", err)
 		return nil, err
 	}
 	return authors, nil
 }
 
 func (r *sqliteBookRepository) getTags(ctx context.Context, bookID int64) ([]domain.Tag, error) {
+	r.log.Debug("getting tags for book", "book_id", bookID)
 	query := `
 		SELECT t.id, t.name
 		FROM tags t
@@ -113,6 +122,7 @@ func (r *sqliteBookRepository) getTags(ctx context.Context, bookID int64) ([]dom
 		WHERE btl.book_id = ?`
 	rows, err := r.db.QueryContext(ctx, query, bookID)
 	if err != nil {
+		r.log.Error("failed to get tags for book", "book_id", bookID, "error", err)
 		return nil, fmt.Errorf("failed to get tags: %w", err)
 	}
 	defer rows.Close()
@@ -121,20 +131,24 @@ func (r *sqliteBookRepository) getTags(ctx context.Context, bookID int64) ([]dom
 	for rows.Next() {
 		var t domain.Tag
 		if err := rows.Scan(&t.ID, &t.Name); err != nil {
+			r.log.Error("failed to scan tag row", "book_id", bookID, "error", err)
 			return nil, err
 		}
 		tags = append(tags, t)
 	}
 	if err := rows.Err(); err != nil {
+		r.log.Error("error during tag row iteration", "book_id", bookID, "error", err)
 		return nil, err
 	}
 	return tags, nil
 }
 
 func (r *sqliteBookRepository) getFormats(ctx context.Context, bookID int64) ([]domain.Format, error) {
+	r.log.Debug("getting formats for book", "book_id", bookID)
 	query := `SELECT id, format, uncompressed_size, name FROM formats WHERE book_id = ?`
 	rows, err := r.db.QueryContext(ctx, query, bookID)
 	if err != nil {
+		r.log.Error("failed to get formats for book", "book_id", bookID, "error", err)
 		return nil, fmt.Errorf("failed to get formats: %w", err)
 	}
 	defer rows.Close()
@@ -143,19 +157,23 @@ func (r *sqliteBookRepository) getFormats(ctx context.Context, bookID int64) ([]
 	for rows.Next() {
 		var f domain.Format
 		if err := rows.Scan(&f.ID, &f.Format, &f.UncompressedSize, &f.Name); err != nil {
+			r.log.Error("failed to scan format row", "book_id", bookID, "error", err)
 			return nil, err
 		}
 		formats = append(formats, f)
 	}
 	if err := rows.Err(); err != nil {
+		r.log.Error("error during format row iteration", "book_id", bookID, "error", err)
 		return nil, err
 	}
 	return formats, nil
 }
 
 func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, offset int) ([]domain.Book, int, error) {
+	r.log.Debug("searching books", "query", query, "limit", limit, "offset", offset)
 	ftsQuery, err := buildFTSQuery(query)
 	if err != nil {
+		r.log.Error("search query validation failed", "query", query, "error", err)
 		return nil, 0, err
 	}
 	if ftsQuery == "" {
@@ -166,8 +184,10 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 	var total int
 	err = r.db.QueryRowContext(ctx, countQuery, ftsQuery).Scan(&total)
 	if err != nil {
+		r.log.Error("search count failed", "query", ftsQuery, "error", err)
 		return nil, 0, fmt.Errorf("search count failed: %w", err)
 	}
+	r.log.Debug("search result count", "total", total)
 
 	sqlQuery := `
 		SELECT b.id
@@ -179,6 +199,7 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 
 	rows, err := r.db.QueryContext(ctx, sqlQuery, ftsQuery, limit, offset)
 	if err != nil {
+		r.log.Error("search failed", "query", ftsQuery, "error", err)
 		return nil, 0, fmt.Errorf("search failed: %w", err)
 	}
 
@@ -187,6 +208,7 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 		var id int64
 		if err := rows.Scan(&id); err != nil {
 			rows.Close()
+			r.log.Error("failed to scan search id", "error", err)
 			return nil, 0, err
 		}
 		ids = append(ids, id)
@@ -205,7 +227,6 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 	}
 	return books, total, nil
 }
-
 func buildFTSQuery(query string) (string, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
