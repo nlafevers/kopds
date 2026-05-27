@@ -258,7 +258,14 @@ func readPasswordInteractively(stdout io.Writer) (string, error) {
 }
 
 func runServer(cfg *config.Config, log *slog.Logger) {
-	log.Info("Starting KOPDS server...")
+	log.Info("Starting KOPDS",
+		"app_name", appName,
+		"port", cfg.Port,
+		"database_path", cfg.DatabasePath,
+		"log_level", cfg.LogLevel,
+		"json_log", cfg.JSONLog,
+		"log_path", cfg.LogPath,
+	)
 
 	// 3. Validate Config
 	if err := cfg.Validate(); err != nil {
