@@ -351,16 +351,17 @@ func runServer(cfg *config.Config, log *slog.Logger) {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-	<-stop
-	log.Info("Shutting down server...")
+	sig := <-stop
+	log.Info("Shutdown signal received", "signal", sig.String())
 	workerCancel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	log.Info("Shutting down server...")
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Error("Server forced to shutdown", "error", err)
+		log.Error("Server shutdown failed", "error", err)
+	} else {
+		log.Info("Server exited cleanly")
 	}
-
-	log.Info("Server exited cleanly")
 }
