@@ -285,7 +285,11 @@ func runServer(cfg *config.Config, log *slog.Logger) {
 		log.Error("Failed to run migrations", "error", err)
 		os.Exit(1)
 	}
-	log.Info("Database initialized", "path", cfg.DatabasePath)
+	log.Info("Database initialized",
+		"database_path", cfg.DatabasePath,
+		"migration_status", "success",
+		"storage_cap_mb", cfg.StorageCapMB,
+	)
 
 	// 5. Initialize Scanner
 	bookRepo := database.NewBookRepository(db)
