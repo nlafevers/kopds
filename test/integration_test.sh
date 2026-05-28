@@ -39,7 +39,7 @@ CLI_OUTPUT=$(KOPDS_DATABASE_PATH=$DB ./$BIN_NAME create-user "$USER" --password-
 $PASS
 EOF
 )
-if [[ $CLI_OUTPUT != *"User '$USER' created/updated successfully."* ]]; then
+if [[ $CLI_OUTPUT != *"User '$USER' created successfully."* ]]; then
     echo "CLI user creation FAILED: $CLI_OUTPUT"
     exit 1
 fi
@@ -53,7 +53,7 @@ export KOPDS_IMAGE_CACHE_PATH=$CACHE_DIR
 export KOPDS_BASE_URL=$URL
 export KOPDS_LOG_LEVEL=debug
 
-./$BIN_NAME &
+./$BIN_NAME > server.log 2>&1 &
 PID=$!
 sleep 2
 
@@ -65,9 +65,19 @@ curl -s -f $URL/health > /dev/null
 echo "Testing OPDS Catalog Access..."
 RESP=$(curl -s -u "$USER:$PASS" "$URL/opds/v1.2/catalog")
 
+echo "Testing Auth Failure..."
+curl -s -u "$USER:wrongpass" "$URL/opds/v1.2/catalog" > /dev/null
+
+echo "Testing 404..."
+curl -s -u "$USER:$PASS" "$URL/notfound" > /dev/null
+
 if [[ $RESP == *"KOPDS Root Catalog"* ]]; then
     echo "Integration test PASSED"
+    echo "--- Server Logs ---"
+    cat server.log
 else
     echo "Integration test FAILED: $RESP"
+    echo "--- Server Logs ---"
+    cat server.log
     exit 1
 fi
