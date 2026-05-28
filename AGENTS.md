@@ -20,6 +20,18 @@ KOPDS is maintained alongside KOSYNC with a maximum-uniformity goal. Functions t
   - **Image Pipeline:** On-the-fly thumbnail generation with a local LRU file cache.
   - **Deployment:** Ships as a standalone, single-executable binary for bare-metal execution, alongside a lightweight, CGO-free Docker image (scratch or alpine) for seamless home lab containerization.
 
+## Logging Strategy
+
+KOPDS uses the standard library `log/slog` for structured logging across the entire application.
+- **Uniformity:** Identical logging patterns and field names are used in both KOPDS and KOSYNC.
+- **Request Context:** Every HTTP request is assigned a unique `request_id`. A request-scoped logger is stored in the context and should be retrieved via `api.GetLogger(ctx)`.
+- **Layers:**
+    - **Middleware:** Outermost `LoggingMiddleware` logs request completion (INFO for 2xx/3xx, WARN for 4xx, ERROR for 5xx) with `duration` and `status_code`.
+    - **Handlers:** Log high-level business events (e.g., "feed served") at INFO level using the request-scoped logger.
+    - **Service/Repository:** Log granular diagnostic data (e.g., SQL queries, cache hits) at DEBUG level.
+- **CLI:** All CLI operations log success at INFO and failure at WARN using shared helpers in `internal/logger/cli.go`.
+- **Fields:** Use stable field names: `method`, `path`, `status_code`, `duration`, `request_id`, `user`, `username`, `operation`, `source` ("CLI" or "API"), and `error`.
+
 ## Development Conventions
 
 - **Code Style:** Follow standard Go idioms and `gofmt`.
