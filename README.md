@@ -272,19 +272,35 @@ All settings can be provided as environment variables (prefixed with `KOPDS_`) o
 
 ## 📊 Advanced Logging
 
-KOPDS uses structured logging via the Go standard library `slog` to provide clear and actionable insights into the server's operation.
+KOPDS uses structured logging via the Go standard library `slog` to provide clear and actionable insights into the server's operation. All logs include a `request_id` for correlating multiple events from a single request.
 
 ### Log Formats
-- **Human-Readable (Default):** Optimized for terminal viewing with colors and formatted timestamps. Best for local development and native deployments.
+- **Human-Readable (Default):** Optimized for terminal viewing. Best for local development and native deployments.
 - **JSON:** Structured output that is easy to parse by log aggregators like **Promtail/Loki**, **Elasticsearch**, or **CloudWatch**. Enable this with `KOPDS_JSON_LOG=true`.
 
 ### Log Levels
 You can adjust the verbosity of the logs using the `KOPDS_LOG_LEVEL` setting:
 
-- **`debug`:** Use this when troubleshooting. It provides granular details about the background scanner (e.g., which books are being indexed) and internal routing.
-- **`info`:** The recommended level for production. Reports server startup, synchronization batches, and incoming requests.
-- **`warn`:** Only logs non-critical issues, such as failed cover resizing for a specific book or minor synchronization skips.
-- **`error`:** Only logs critical failures that require attention, such as database connection issues or inability to access the library share.
+- **`debug`:** troubleshooting detail. Shows query-level database diagnostics, authentication success details, and individual file sync events.
+- **`info`:** Recommended for production. Reports server startup, database initialization, background sync milestones, and completed HTTP requests.
+- **`warn`:** Logs handled problems, such as client authentication failures (401), invalid request paths (404), or storage cap pruning events.
+- **`error`:** Logs critical failures requiring attention, such as database corruption, library access errors, or server-side crashes (500).
+
+### Example Logs
+
+**Healthy Request (INFO):**
+`time=2026-05-27T10:00:00Z level=INFO msg="request completed" method=GET path="/opds/v1.2/catalog" request_id=eae37b8c status_code=200 duration=189ms remote_addr=192.168.1.50`
+
+**Auth Failure (WARN):**
+`time=2026-05-27T10:05:00Z level=WARN msg="client error" method=GET path="/opds/v1.2/catalog" request_id=5d8bd0a7 status_code=401 duration=194ms remote_addr=192.168.1.51`
+
+**Scanner Diagnostic (DEBUG):**
+`time=2026-05-27T10:10:00Z level=DEBUG msg="getting user by username" username=testuser request_id=eae37b8c`
+
+### Troubleshooting with Logs
+1. **Missing Books:** Set `KOPDS_LOG_LEVEL=debug` and check for `Initial sync failed` or `Periodic sync failed` messages.
+2. **Slow Performance:** Check the `duration` field in `request completed` logs. If database queries are slow, check for `DEBUG` logs from the repository layer.
+3. **Auth Issues:** Look for `WARN` logs with `status_code=401`. The `request_id` will help you find the corresponding `auth failure` or `getting user` logs.
 
 ---
 
