@@ -36,7 +36,7 @@ func TestEnforceStorageCapIntegration(t *testing.T) {
 		t.Fatalf("failed to stat db: %v", err)
 	}
 	initialSize := info.Size()
-    t.Logf("Initial database size: %d bytes (Cap: %d)", initialSize, 1*1024*1024)
+	t.Logf("Initial database size: %d bytes (Cap: %d)", initialSize, 1*1024*1024)
 
 	// Enforce 1MB cap
 	pruned, err := storage.EnforceStorageCap(dbPath, 1)
@@ -56,5 +56,5 @@ func TestEnforceStorageCapIntegration(t *testing.T) {
 	if count >= 20000 {
 		t.Errorf("expected fewer than 20000 records, got %d", count)
 	}
-    t.Logf("Final record count: %d", count)
+	t.Logf("Final record count: %d", count)
 }

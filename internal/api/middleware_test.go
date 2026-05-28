@@ -8,19 +8,21 @@ import (
 
 	"github.com/nlafevers/kopds/internal/domain"
 )
+
 func TestBasicAuth(t *testing.T) {
 	password := "secret"
 	hash, _ := HashPassword(password)
 
-	userRepo := &mockUserRepo{		getByUsernameFunc: func(ctx context.Context, username string) (*domain.User, error) {
-			if username == "admin" {
-				return &domain.User{Username: "admin", Password: hash}, nil
-			}
-			return nil, nil
-		},
+	userRepo := &mockUserRepo{getByUsernameFunc: func(ctx context.Context, username string) (*domain.User, error) {
+		if username == "admin" {
+			return &domain.User{Username: "admin", Password: hash}, nil
+		}
+		return nil, nil
+	},
 	}
 
-	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {		w.WriteHeader(http.StatusOK)
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 

@@ -173,6 +173,7 @@ func (h *Handler) AuthorsFeedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	h.sendFeed(w, r, feed)
 }
+
 // SeriesFeedHandler returns a paginated list of series in the OPDS catalog.
 func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 	page := getPage(r)
@@ -209,6 +210,7 @@ func (h *Handler) SeriesFeedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	h.sendFeed(w, r, feed)
 }
+
 // TagsFeedHandler returns a paginated list of tags in the OPDS catalog.
 func (h *Handler) TagsFeedHandler(w http.ResponseWriter, r *http.Request) {
 	page := getPage(r)
@@ -245,6 +247,7 @@ func (h *Handler) TagsFeedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	h.sendFeed(w, r, feed)
 }
+
 // NewestFeedHandler returns a paginated list of the newest books in the OPDS catalog.
 func (h *Handler) NewestFeedHandler(w http.ResponseWriter, r *http.Request) {
 	page := getPage(r)

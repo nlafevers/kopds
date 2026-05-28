@@ -16,7 +16,7 @@ func TestLoggingMiddleware(t *testing.T) {
 	// but the middleware creates its own logger anyway.
 	// Actually, the middleware uses slog.With, which uses the default logger if not specified.
 	// Wait, slog.With uses the default logger.
-	
+
 	oldDefault := slog.Default()
 	slog.SetDefault(logger)
 	defer slog.SetDefault(oldDefault)

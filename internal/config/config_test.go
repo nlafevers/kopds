@@ -44,7 +44,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	os.Unsetenv("KOPDS_PORT")
 	os.Unsetenv("KOPDS_DATABASE_PATH")
 	os.Unsetenv("KOPDS_LIBRARY_PATH")
-	
+
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -70,7 +70,7 @@ func TestPathResolution(t *testing.T) {
 	os.Setenv("KOPDS_DATABASE_PATH", "my.db")
 	os.Setenv("KOPDS_LOG_PATH", "my.log")
 	os.Setenv("KOPDS_IMAGE_CACHE_PATH", "mycache")
-	
+
 	defer func() {
 		os.Unsetenv("KOPDS_DATABASE_PATH")
 		os.Unsetenv("KOPDS_LOG_PATH")
