@@ -63,8 +63,8 @@ func NewStorage(db *sql.DB, log *slog.Logger) *Storage {
 }
 
 // NewSQLite creates a new SQLite database connection.
-func NewSQLite(path string) (*sql.DB, error) {
-	return OpenSQLite(path, true)
+func NewSQLite(path string, allowCreate bool) (*sql.DB, error) {
+	return OpenSQLite(path, allowCreate)
 }
 
 // Migrate applies the schema to the database.

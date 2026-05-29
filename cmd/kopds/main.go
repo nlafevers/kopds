@@ -107,7 +107,7 @@ func printUsage() {
 
 func createUser(cfg *config.Config, username, password string) {
 	operation := "create-user"
-	db, err := database.NewSQLite(cfg.DatabasePath)
+	db, err := database.NewSQLite(cfg.DatabasePath, true)
 	if err != nil {
 		logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
 		fmt.Printf("Failed to connect to database: %v\n", err)
@@ -151,7 +151,7 @@ func createUser(cfg *config.Config, username, password string) {
 
 func deleteUser(cfg *config.Config, username string) {
 	operation := "delete-user"
-	db, err := database.NewSQLite(cfg.DatabasePath)
+	db, err := database.NewSQLite(cfg.DatabasePath, true)
 	if err != nil {
 		logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
 		fmt.Printf("Failed to connect to database: %v\n", err)
@@ -177,7 +177,7 @@ func deleteUser(cfg *config.Config, username string) {
 }
 func changePassword(cfg *config.Config, username, password string) {
 	operation := "change-password"
-	db, err := database.NewSQLite(cfg.DatabasePath)
+	db, err := database.NewSQLite(cfg.DatabasePath, true)
 	if err != nil {
 		logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
 		fmt.Printf("Failed to connect to database: %v\n", err)
@@ -275,7 +275,7 @@ func runServer(cfg *config.Config, log *slog.Logger) {
 	}
 
 	// 4. Initialize Database
-	db, err := database.NewSQLite(cfg.DatabasePath)
+	db, err := database.NewSQLite(cfg.DatabasePath, true)
 	if err != nil {
 		log.Error("Failed to connect to database", "error", err)
 		os.Exit(1)

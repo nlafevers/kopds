@@ -21,7 +21,7 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 	tmpFile.Close()
 	defer os.Remove(dbPath)
 
-	db, err := NewSQLite(dbPath)
+	db, err := NewSQLite(dbPath, true)
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
