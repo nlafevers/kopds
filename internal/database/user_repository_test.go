@@ -9,6 +9,96 @@ import (
 	"github.com/nlafevers/kopds/internal/domain"
 )
 
+func TestStorageUserMethods(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "kopds-storage-user-test-*.db")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	dbPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(dbPath)
+
+	db, err := NewSQLite(dbPath, true)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	if err := Migrate(db); err != nil {
+		t.Fatalf("failed to migrate database: %v", err)
+	}
+
+	s := NewStorage(db, slog.Default())
+
+	// CreateUserIfNotExists - creates a new user
+	if err := s.CreateUserIfNotExists("alice", "hash-alice"); err != nil {
+		t.Fatalf("CreateUserIfNotExists failed: %v", err)
+	}
+
+	// CreateUserIfNotExists - fails on duplicate
+	if err := s.CreateUserIfNotExists("alice", "hash-alice-2"); err == nil {
+		t.Fatal("expected error for duplicate user, got nil")
+	}
+
+	// GetUserHash - returns the stored hash
+	hash, err := s.GetUserHash("alice")
+	if err != nil {
+		t.Fatalf("GetUserHash failed: %v", err)
+	}
+	if hash != "hash-alice" {
+		t.Errorf("expected hash-alice, got %s", hash)
+	}
+
+	// SaveUser - upserts (create new)
+	if err := s.SaveUser("bob", "hash-bob"); err != nil {
+		t.Fatalf("SaveUser (create) failed: %v", err)
+	}
+
+	// SaveUser - upserts (update existing)
+	if err := s.SaveUser("alice", "hash-alice-updated"); err != nil {
+		t.Fatalf("SaveUser (update) failed: %v", err)
+	}
+	hash, err = s.GetUserHash("alice")
+	if err != nil {
+		t.Fatalf("GetUserHash after SaveUser update failed: %v", err)
+	}
+	if hash != "hash-alice-updated" {
+		t.Errorf("expected hash-alice-updated after SaveUser, got %s", hash)
+	}
+
+	// UpdatePassword - updates existing user
+	if err := s.UpdatePassword("alice", "hash-alice-v2"); err != nil {
+		t.Fatalf("UpdatePassword failed: %v", err)
+	}
+	hash, err = s.GetUserHash("alice")
+	if err != nil {
+		t.Fatalf("GetUserHash after UpdatePassword failed: %v", err)
+	}
+	if hash != "hash-alice-v2" {
+		t.Errorf("expected hash-alice-v2 after UpdatePassword, got %s", hash)
+	}
+
+	// UpdatePassword - fails for nonexistent user
+	if err := s.UpdatePassword("nonexistent", "hash-x"); err == nil {
+		t.Fatal("expected error for UpdatePassword on nonexistent user, got nil")
+	}
+
+	// DeleteUser - removes existing user
+	if err := s.DeleteUser("bob"); err != nil {
+		t.Fatalf("DeleteUser failed: %v", err)
+	}
+
+	// GetUserHash - fails for deleted user
+	if _, err := s.GetUserHash("bob"); err == nil {
+		t.Fatal("expected error for GetUserHash on deleted user, got nil")
+	}
+
+	// DeleteUser - fails for nonexistent user
+	if err := s.DeleteUser("nonexistent"); err == nil {
+		t.Fatal("expected error for DeleteUser on nonexistent user, got nil")
+	}
+}
+
 func TestUserRepository(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "kopds-user-test-*.db")
 	if err != nil {
