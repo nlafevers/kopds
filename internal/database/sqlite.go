@@ -57,11 +57,6 @@ func OpenSQLite(path string, allowCreate bool) (*sql.DB, error) {
 	return db, nil
 }
 
-// NewStorage creates a new storage wrapper.
-func NewStorage(db *sql.DB, log *slog.Logger) *Storage {
-	return &Storage{db: db, log: log}
-}
-
 // NewSQLite creates a new SQLite database connection.
 func NewSQLite(path string, allowCreate bool) (*sql.DB, error) {
 	return OpenSQLite(path, allowCreate)

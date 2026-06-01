@@ -135,7 +135,7 @@ func TestStorageCapLogsMaintenance(t *testing.T) {
 		t.Fatalf("failed to migrate db: %v", err)
 	}
 
-	storage := NewStorage(db, logger)
+	storage := &Storage{db: db, log: logger}
 	for i := 0; i < 10; i++ {
 		_, err := db.Exec("INSERT INTO sync_state (key, value) VALUES (?, ?)", fmt.Sprintf("key-%d", i), "value")
 		if err != nil {

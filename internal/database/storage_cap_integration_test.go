@@ -18,7 +18,7 @@ func TestEnforceStorageCapIntegration(t *testing.T) {
 	if err := Migrate(db); err != nil {
 		t.Fatalf("failed to migrate db: %v", err)
 	}
-	storage := NewStorage(db, slog.Default())
+	storage := &Storage{db: db, log: slog.Default()}
 	defer storage.db.Close()
 
 	// Bloat the database with dummy sync_state records
