@@ -180,3 +180,85 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 		t.Fatal("expected pruned book to be deleted")
 	}
 }
+
+// TestListByAuthor_CorrectBooks is a regression test for the ListByAuthor join bug.
+// Previously the join used `b.id = bal.author_id` (wrong column) instead of
+// `b.id = bal.book_id`, which caused incorrect or empty results.
+func TestListByAuthor_CorrectBooks(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "kopds-listbyauthor-*.db")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	dbPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(dbPath)
+
+	db, err := NewSQLite(dbPath, true)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	if err := Migrate(db); err != nil {
+		t.Fatalf("failed to migrate database: %v", err)
+	}
+
+	repo := NewBookRepository(db, slog.Default())
+	ctx := context.Background()
+
+	// Author A writes book1; Author B writes book2.
+	book1 := &domain.Book{
+		UUID:      "uuid-book1",
+		Title:     "Book One",
+		Sort:      "Book One",
+		CalibreID: 1,
+		Authors:   []domain.Author{{Name: "Author Alpha", Sort: "Alpha, Author"}},
+	}
+	book2 := &domain.Book{
+		UUID:      "uuid-book2",
+		Title:     "Book Two",
+		Sort:      "Book Two",
+		CalibreID: 2,
+		Authors:   []domain.Author{{Name: "Author Beta", Sort: "Beta, Author"}},
+	}
+
+	if err := repo.Upsert(ctx, book1); err != nil {
+		t.Fatalf("failed to upsert book1: %v", err)
+	}
+	if err := repo.Upsert(ctx, book2); err != nil {
+		t.Fatalf("failed to upsert book2: %v", err)
+	}
+
+	authorAlphaID := book1.Authors[0].ID
+	authorBetaID := book2.Authors[0].ID
+
+	// Author Alpha should return exactly book1, not book2.
+	alphaBooks, total, err := repo.ListByAuthor(ctx, authorAlphaID, 10, 0)
+	if err != nil {
+		t.Fatalf("ListByAuthor for Alpha failed: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("expected total=1 for Author Alpha, got %d", total)
+	}
+	if len(alphaBooks) != 1 {
+		t.Fatalf("expected 1 book for Author Alpha, got %d", len(alphaBooks))
+	}
+	if alphaBooks[0].Title != "Book One" {
+		t.Errorf("expected 'Book One' for Author Alpha, got %q", alphaBooks[0].Title)
+	}
+
+	// Author Beta should return exactly book2, not book1.
+	betaBooks, total, err := repo.ListByAuthor(ctx, authorBetaID, 10, 0)
+	if err != nil {
+		t.Fatalf("ListByAuthor for Beta failed: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("expected total=1 for Author Beta, got %d", total)
+	}
+	if len(betaBooks) != 1 {
+		t.Fatalf("expected 1 book for Author Beta, got %d", len(betaBooks))
+	}
+	if betaBooks[0].Title != "Book Two" {
+		t.Errorf("expected 'Book Two' for Author Beta, got %q", betaBooks[0].Title)
+	}
+}

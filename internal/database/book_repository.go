@@ -274,9 +274,9 @@ func (r *sqliteBookRepository) ListByAuthor(ctx context.Context, authorID int64,
 	}
 
 	query := `
-		SELECT b.id 
+		SELECT b.id
 		FROM books b
-		JOIN books_authors_link bal ON b.id = bal.author_id
+		JOIN books_authors_link bal ON b.id = bal.book_id
 		WHERE bal.author_id = ?
 		ORDER BY b.sort ASC
 		LIMIT ? OFFSET ?`
