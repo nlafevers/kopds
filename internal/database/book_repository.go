@@ -735,7 +735,6 @@ func (r *sqliteBookRepository) ReindexBook(ctx context.Context, bookID int64) er
 	return nil
 }
 
-
 func (r *sqliteBookRepository) PruneMissingCalibreIDs(ctx context.Context, keepIDs []int64) (int64, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
