@@ -270,7 +270,12 @@ func (h *Handler) NewestFeedHandler(w http.ResponseWriter, r *http.Request) {
 // AuthorBooksHandler returns a paginated list of books by a specific author.
 func (h *Handler) AuthorBooksHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, _ := strconv.ParseInt(idStr, 10, 64)
+	id, err := parsePositiveID(idStr)
+	if err != nil {
+		GetLogger(r.Context()).Warn("invalid author ID", "id", idStr)
+		http.Error(w, "Invalid author ID", http.StatusBadRequest)
+		return
+	}
 	page := getPage(r)
 
 	books, total, err := h.BookService.GetBooksByAuthor(r.Context(), id, page)
@@ -292,7 +297,12 @@ func (h *Handler) AuthorBooksHandler(w http.ResponseWriter, r *http.Request) {
 // SeriesBooksHandler returns a paginated list of books in a specific series.
 func (h *Handler) SeriesBooksHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, _ := strconv.ParseInt(idStr, 10, 64)
+	id, err := parsePositiveID(idStr)
+	if err != nil {
+		GetLogger(r.Context()).Warn("invalid series ID", "id", idStr)
+		http.Error(w, "Invalid series ID", http.StatusBadRequest)
+		return
+	}
 	page := getPage(r)
 
 	books, total, err := h.BookService.GetBooksBySeries(r.Context(), id, page)
@@ -314,7 +324,12 @@ func (h *Handler) SeriesBooksHandler(w http.ResponseWriter, r *http.Request) {
 // TagBooksHandler returns a paginated list of books with a specific tag.
 func (h *Handler) TagBooksHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, _ := strconv.ParseInt(idStr, 10, 64)
+	id, err := parsePositiveID(idStr)
+	if err != nil {
+		GetLogger(r.Context()).Warn("invalid tag ID", "id", idStr)
+		http.Error(w, "Invalid tag ID", http.StatusBadRequest)
+		return
+	}
 	page := getPage(r)
 
 	books, total, err := h.BookService.GetBooksByTag(r.Context(), id, page)
@@ -336,7 +351,12 @@ func (h *Handler) TagBooksHandler(w http.ResponseWriter, r *http.Request) {
 // BookDetailHandler returns a detail entry for a specific book.
 func (h *Handler) BookDetailHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, _ := strconv.ParseInt(idStr, 10, 64)
+	id, err := parsePositiveID(idStr)
+	if err != nil {
+		GetLogger(r.Context()).Warn("invalid book ID", "id", idStr)
+		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
 
 	book, err := h.BookService.GetBookByID(r.Context(), id)
 	if err != nil {
@@ -394,7 +414,7 @@ func (h *Handler) SearchFeedHandler(w http.ResponseWriter, r *http.Request) {
 // CoverHandler serves the cover image for a book, resizing it if necessary and caching the result.
 func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parsePositiveID(idStr)
 	if err != nil {
 		GetLogger(r.Context()).Warn("invalid book ID", "id", idStr)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
@@ -464,7 +484,7 @@ func (h *Handler) CoverHandler(w http.ResponseWriter, r *http.Request) {
 // BookFileHandler streams a book file in the requested format.
 func (h *Handler) BookFileHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parsePositiveID(idStr)
 	if err != nil {
 		GetLogger(r.Context()).Warn("invalid book ID", "id", idStr)
 		http.Error(w, "Invalid book ID", http.StatusBadRequest)
@@ -565,6 +585,19 @@ type OSDUrl struct {
 }
 
 // Helpers
+
+// parsePositiveID parses a string as a positive int64. It returns an error if the
+// string is not a valid integer or if the parsed value is <= 0.
+func parsePositiveID(value string) (int64, error) {
+	id, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	if id <= 0 {
+		return 0, fmt.Errorf("ID must be positive, got %d", id)
+	}
+	return id, nil
+}
 
 func getPage(r *http.Request) int {
 	if p := r.URL.Query().Get("page"); p != "" {

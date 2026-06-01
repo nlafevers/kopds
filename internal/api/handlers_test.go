@@ -597,6 +597,130 @@ func TestOpenSearchDescriptorHandler(t *testing.T) {
 	}
 }
 
+func TestParsePositiveID(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantID  int64
+		wantErr bool
+	}{
+		{"1", 1, false},
+		{"42", 42, false},
+		{"9999999", 9999999, false},
+		{"0", 0, true},
+		{"-1", 0, true},
+		{"-100", 0, true},
+		{"abc", 0, true},
+		{"", 0, true},
+		{"1.5", 0, true},
+		{"99999999999999999999", 0, true}, // overflow
+	}
+	for _, tt := range tests {
+		id, err := parsePositiveID(tt.input)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("parsePositiveID(%q): expected error, got nil (id=%d)", tt.input, id)
+			}
+		} else {
+			if err != nil {
+				t.Errorf("parsePositiveID(%q): unexpected error: %v", tt.input, err)
+			}
+			if id != tt.wantID {
+				t.Errorf("parsePositiveID(%q): got %d, want %d", tt.input, id, tt.wantID)
+			}
+		}
+	}
+}
+
+func TestAuthorBooksHandlerInvalidID(t *testing.T) {
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	svc := service.NewBookService(&mockRepo{}, linkGen)
+	h := NewHandler(svc, nil, linkGen, nil, "")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/authors/{id}/books", h.AuthorBooksHandler)
+
+	for _, id := range []string{"abc", "0", "-5"} {
+		req, _ := http.NewRequest("GET", "/opds/v1.2/authors/"+id+"/books", nil)
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("AuthorBooksHandler id=%q: expected 400, got %d", id, rr.Code)
+		}
+	}
+}
+
+func TestSeriesBooksHandlerInvalidID(t *testing.T) {
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	svc := service.NewBookService(&mockRepo{}, linkGen)
+	h := NewHandler(svc, nil, linkGen, nil, "")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/series/{id}/books", h.SeriesBooksHandler)
+
+	for _, id := range []string{"abc", "0", "-5"} {
+		req, _ := http.NewRequest("GET", "/opds/v1.2/series/"+id+"/books", nil)
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("SeriesBooksHandler id=%q: expected 400, got %d", id, rr.Code)
+		}
+	}
+}
+
+func TestTagBooksHandlerInvalidID(t *testing.T) {
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	svc := service.NewBookService(&mockRepo{}, linkGen)
+	h := NewHandler(svc, nil, linkGen, nil, "")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/tags/{id}/books", h.TagBooksHandler)
+
+	for _, id := range []string{"abc", "0", "-5"} {
+		req, _ := http.NewRequest("GET", "/opds/v1.2/tags/"+id+"/books", nil)
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("TagBooksHandler id=%q: expected 400, got %d", id, rr.Code)
+		}
+	}
+}
+
+func TestBookDetailHandlerInvalidID(t *testing.T) {
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	svc := service.NewBookService(&mockRepo{}, linkGen)
+	h := NewHandler(svc, nil, linkGen, nil, "")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/books/{id}", h.BookDetailHandler)
+
+	for _, id := range []string{"abc", "0", "-5"} {
+		req, _ := http.NewRequest("GET", "/opds/v1.2/books/"+id, nil)
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("BookDetailHandler id=%q: expected 400, got %d", id, rr.Code)
+		}
+	}
+}
+
+func TestBookFileHandlerInvalidID(t *testing.T) {
+	linkGen := utils.NewLinkGenerator("http://localhost:8080")
+	svc := service.NewBookService(&mockRepo{}, linkGen)
+	h := NewHandler(svc, nil, linkGen, nil, "")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /opds/v1.2/books/{id}/file/{format}", h.BookFileHandler)
+
+	for _, id := range []string{"abc", "0", "-5"} {
+		req, _ := http.NewRequest("GET", "/opds/v1.2/books/"+id+"/file/epub", nil)
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("BookFileHandler id=%q: expected 400, got %d", id, rr.Code)
+		}
+	}
+}
+
 func TestCoverHandler(t *testing.T) {
 	// Setup
 	tempDir := t.TempDir()
