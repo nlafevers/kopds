@@ -202,18 +202,21 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 		r.log.Error("search failed", "query", ftsQuery, "error", err)
 		return nil, 0, fmt.Errorf("search failed: %w", err)
 	}
+	defer rows.Close()
 
 	var ids []int64
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
-			rows.Close()
 			r.log.Error("failed to scan search id", "error", err)
 			return nil, 0, err
 		}
 		ids = append(ids, id)
 	}
-	rows.Close()
+	if err := rows.Err(); err != nil {
+		r.log.Error("error during search row iteration", "error", err)
+		return nil, 0, fmt.Errorf("iterating rows: %w", err)
+	}
 
 	var books []domain.Book
 	for _, id := range ids {
@@ -429,17 +432,19 @@ func (r *sqliteBookRepository) listBooks(ctx context.Context, query string, args
 	if err != nil {
 		return nil, fmt.Errorf("failed to list books: %w", err)
 	}
+	defer rows.Close()
 
 	var ids []int64
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
-			rows.Close()
 			return nil, err
 		}
 		ids = append(ids, id)
 	}
-	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating rows: %w", err)
+	}
 
 	var books []domain.Book
 	for _, id := range ids {
