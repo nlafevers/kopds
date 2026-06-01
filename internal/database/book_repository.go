@@ -593,26 +593,6 @@ func (r *sqliteBookRepository) ReindexBook(ctx context.Context, bookID int64) er
 	return nil
 }
 
-// ReindexBook updates the FTS5 search table for a given book.
-func ReindexBook(tx *sql.Tx, bookID int64) error {
-	_, err := tx.Exec("DELETE FROM books_search WHERE rowid = ?", bookID)
-	if err != nil {
-		return err
-	}
-	query := `
-		INSERT INTO books_search (rowid, title, series, authors, tags)
-		SELECT 
-			b.id, 
-			b.title, 
-			IFNULL(s.name, ''),
-			(SELECT IFNULL(GROUP_CONCAT(a.name, ' '), '') FROM authors a JOIN books_authors_link bal ON a.id = bal.author_id WHERE bal.book_id = b.id),
-			(SELECT IFNULL(GROUP_CONCAT(t.name, ' '), '') FROM tags t JOIN books_tags_link btl ON t.id = btl.tag_id WHERE btl.book_id = b.id)
-		FROM books b 
-		LEFT JOIN series s ON b.series_id = s.id 
-		WHERE b.id = ?`
-	_, err = tx.Exec(query, bookID)
-	return err
-}
 
 func (r *sqliteBookRepository) PruneMissingCalibreIDs(ctx context.Context, keepIDs []int64) (int64, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
