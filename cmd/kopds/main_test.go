@@ -66,7 +66,7 @@ func TestCLIUserManagement(t *testing.T) {
 			t.Errorf("unexpected output: %s", output)
 		}
 
-		db, err := database.NewSQLite(dbPath, false)
+		db, err := database.OpenSQLite(dbPath, false)
 		if err != nil {
 			t.Fatalf("failed to open db: %v", err)
 		}
@@ -97,7 +97,7 @@ func TestCLIUserManagement(t *testing.T) {
 			t.Errorf("unexpected output: %s", output)
 		}
 
-		db, _ := database.NewSQLite(dbPath, false)
+		db, _ := database.OpenSQLite(dbPath, false)
 		defer db.Close()
 		repo := database.NewUserRepository(db, slog.Default())
 		user, _ := repo.GetByUsername(context.Background(), "clitest")
@@ -118,7 +118,7 @@ func TestCLIUserManagement(t *testing.T) {
 			t.Errorf("unexpected error message: %s", output)
 		}
 
-		db, _ := database.NewSQLite(dbPath, false)
+		db, _ := database.OpenSQLite(dbPath, false)
 		defer db.Close()
 		repo := database.NewUserRepository(db, slog.Default())
 		user, _ := repo.GetByUsername(context.Background(), "clitest")
@@ -137,7 +137,7 @@ func TestCLIUserManagement(t *testing.T) {
 			t.Errorf("unexpected output: %s", output)
 		}
 
-		db, _ := database.NewSQLite(dbPath, false)
+		db, _ := database.OpenSQLite(dbPath, false)
 		defer db.Close()
 		repo := database.NewUserRepository(db, slog.Default())
 		user, err := repo.GetByUsername(context.Background(), "clitest")

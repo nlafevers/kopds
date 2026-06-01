@@ -57,11 +57,6 @@ func OpenSQLite(path string, allowCreate bool) (*sql.DB, error) {
 	return db, nil
 }
 
-// NewSQLite creates a new SQLite database connection.
-func NewSQLite(path string, allowCreate bool) (*sql.DB, error) {
-	return OpenSQLite(path, allowCreate)
-}
-
 // Migrate applies the schema to the database.
 func Migrate(db *sql.DB) error {
 	var columnName string

@@ -108,7 +108,7 @@ func printUsage() {
 }
 
 func openCLIStorage(cfg *config.Config) (*sql.DB, domain.UserRepository) {
-	db, err := database.NewSQLite(cfg.DatabasePath, true)
+	db, err := database.OpenSQLite(cfg.DatabasePath, true)
 	if err != nil {
 		fmt.Printf("Failed to connect to database: %v\n", err)
 		os.Exit(1)
@@ -258,7 +258,7 @@ func runServer(cfg *config.Config, log *slog.Logger) {
 	}
 
 	// 4. Initialize Database
-	db, err := database.NewSQLite(cfg.DatabasePath, true)
+	db, err := database.OpenSQLite(cfg.DatabasePath, true)
 	if err != nil {
 		log.Error("Failed to connect to database", "error", err)
 		os.Exit(1)

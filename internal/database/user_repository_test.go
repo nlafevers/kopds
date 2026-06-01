@@ -18,7 +18,7 @@ func TestUserRepository(t *testing.T) {
 	tmpFile.Close()
 	defer os.Remove(dbPath)
 
-	db, err := NewSQLite(dbPath, true)
+	db, err := OpenSQLite(dbPath, true)
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}

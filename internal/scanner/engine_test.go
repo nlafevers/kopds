@@ -22,7 +22,7 @@ func setupTestDB(t *testing.T) (*sql.DB, string) {
 	dbPath := tmpFile.Name()
 	tmpFile.Close()
 
-	db, err := database.NewSQLite(dbPath, true)
+	db, err := database.OpenSQLite(dbPath, true)
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
