@@ -181,6 +181,164 @@ func TestBookRepository_UpsertAndSearch(t *testing.T) {
 	}
 }
 
+// TestListRecent_OrderPreserved verifies that ListRecent returns books in
+// descending timestamp order and that all relations are hydrated correctly.
+func TestListRecent_OrderPreserved(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "kopds-order-*.db")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	dbPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(dbPath)
+
+	db, err := NewSQLite(dbPath, true)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	if err := Migrate(db); err != nil {
+		t.Fatalf("failed to migrate database: %v", err)
+	}
+
+	repo := NewBookRepository(db, slog.Default())
+	ctx := context.Background()
+
+	now := time.Now()
+
+	// Insert books with different timestamps so the ORDER BY is deterministic.
+	books := []*domain.Book{
+		{
+			UUID: "uuid-oldest", Title: "Alpha Book", Sort: "Alpha Book", CalibreID: 101,
+			Timestamp: now.Add(-2 * time.Hour),
+			Authors:   []domain.Author{{Name: "Author One", Sort: "One, Author"}},
+			Tags:      []domain.Tag{{Name: "Science"}},
+			Formats:   []domain.Format{{Format: "EPUB", UncompressedSize: 100, Name: "alpha.epub"}},
+		},
+		{
+			UUID: "uuid-middle", Title: "Beta Book", Sort: "Beta Book", CalibreID: 102,
+			Timestamp: now.Add(-1 * time.Hour),
+			Authors:   []domain.Author{{Name: "Author Two", Sort: "Two, Author"}},
+			Tags:      []domain.Tag{{Name: "Fiction"}},
+			Formats:   []domain.Format{{Format: "EPUB", UncompressedSize: 200, Name: "beta.epub"}},
+		},
+		{
+			UUID: "uuid-newest", Title: "Gamma Book", Sort: "Gamma Book", CalibreID: 103,
+			Timestamp: now,
+			Authors:   []domain.Author{{Name: "Author Three", Sort: "Three, Author"}},
+			Tags:      []domain.Tag{{Name: "History"}},
+			Formats:   []domain.Format{{Format: "EPUB", UncompressedSize: 300, Name: "gamma.epub"}},
+		},
+	}
+	for _, b := range books {
+		if err := repo.Upsert(ctx, b); err != nil {
+			t.Fatalf("failed to upsert book %q: %v", b.Title, err)
+		}
+	}
+
+	recent, total, err := repo.ListRecent(ctx, 10, 0)
+	if err != nil {
+		t.Fatalf("ListRecent failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected total=3, got %d", total)
+	}
+	if len(recent) != 3 {
+		t.Fatalf("expected 3 books, got %d", len(recent))
+	}
+
+	// Newest first.
+	expectedOrder := []string{"Gamma Book", "Beta Book", "Alpha Book"}
+	for i, title := range expectedOrder {
+		if recent[i].Title != title {
+			t.Errorf("position %d: expected %q, got %q", i, title, recent[i].Title)
+		}
+	}
+
+	// Relations must be hydrated for every book.
+	for _, b := range recent {
+		if len(b.Authors) == 0 {
+			t.Errorf("book %q has no authors after batch hydration", b.Title)
+		}
+		if len(b.Tags) == 0 {
+			t.Errorf("book %q has no tags after batch hydration", b.Title)
+		}
+		if len(b.Formats) == 0 {
+			t.Errorf("book %q has no formats after batch hydration", b.Title)
+		}
+	}
+}
+
+// TestSearch_OrderPreserved verifies that Search returns books in FTS rank order
+// and that all relations are hydrated correctly.
+func TestSearch_OrderPreserved(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "kopds-search-order-*.db")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	dbPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(dbPath)
+
+	db, err := NewSQLite(dbPath, true)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	if err := Migrate(db); err != nil {
+		t.Fatalf("failed to migrate database: %v", err)
+	}
+
+	repo := NewBookRepository(db, slog.Default())
+	ctx := context.Background()
+
+	insertBooks := []*domain.Book{
+		{
+			UUID: "uuid-s1", Title: "Golang Patterns", Sort: "Golang Patterns", CalibreID: 201,
+			Authors: []domain.Author{{Name: "Dev Writer", Sort: "Writer, Dev"}},
+			Tags:    []domain.Tag{{Name: "Programming"}},
+			Formats: []domain.Format{{Format: "PDF", UncompressedSize: 400, Name: "golang.pdf"}},
+		},
+		{
+			UUID: "uuid-s2", Title: "Rust Systems", Sort: "Rust Systems", CalibreID: 202,
+			Authors: []domain.Author{{Name: "Systems Expert", Sort: "Expert, Systems"}},
+			Tags:    []domain.Tag{{Name: "Systems"}},
+			Formats: []domain.Format{{Format: "EPUB", UncompressedSize: 500, Name: "rust.epub"}},
+		},
+	}
+	for _, b := range insertBooks {
+		if err := repo.Upsert(ctx, b); err != nil {
+			t.Fatalf("failed to upsert: %v", err)
+		}
+	}
+
+	results, total, err := repo.Search(ctx, "Golang", 10, 0)
+	if err != nil {
+		t.Fatalf("Search failed: %v", err)
+	}
+	if total == 0 {
+		t.Fatal("expected total > 0")
+	}
+	if len(results) == 0 {
+		t.Fatal("expected search results, got none")
+	}
+	if results[0].Title != "Golang Patterns" {
+		t.Errorf("expected first result 'Golang Patterns', got %q", results[0].Title)
+	}
+
+	// Relations must be hydrated.
+	for _, b := range results {
+		if len(b.Authors) == 0 {
+			t.Errorf("book %q has no authors after batch hydration", b.Title)
+		}
+		if len(b.Formats) == 0 {
+			t.Errorf("book %q has no formats after batch hydration", b.Title)
+		}
+	}
+}
+
 // TestListByAuthor_CorrectBooks is a regression test for the ListByAuthor join bug.
 // Previously the join used `b.id = bal.author_id` (wrong column) instead of
 // `b.id = bal.book_id`, which caused incorrect or empty results.

@@ -218,15 +218,9 @@ func (r *sqliteBookRepository) Search(ctx context.Context, query string, limit, 
 		return nil, 0, fmt.Errorf("iterating rows: %w", err)
 	}
 
-	var books []domain.Book
-	for _, id := range ids {
-		book, err := r.GetByID(ctx, id)
-		if err != nil {
-			return nil, 0, err
-		}
-		if book != nil {
-			books = append(books, *book)
-		}
+	books, err := r.hydrateBooks(ctx, ids)
+	if err != nil {
+		return nil, 0, err
 	}
 	return books, total, nil
 }
@@ -446,14 +440,162 @@ func (r *sqliteBookRepository) listBooks(ctx context.Context, query string, args
 		return nil, fmt.Errorf("iterating rows: %w", err)
 	}
 
-	var books []domain.Book
-	for _, id := range ids {
-		book, err := r.GetByID(ctx, id)
-		if err != nil {
-			return nil, err
+	return r.hydrateBooks(ctx, ids)
+}
+
+// hydrateBooks fetches full book data (including relations) for the given
+// ordered list of book IDs using batch queries instead of one query per book.
+// The result slice preserves the order of ids; missing books are skipped.
+func (r *sqliteBookRepository) hydrateBooks(ctx context.Context, ids []int64) ([]domain.Book, error) {
+	if len(ids) == 0 {
+		return []domain.Book{}, nil
+	}
+
+	// Build the IN (?,?,...) placeholder string.
+	placeholders := strings.Repeat("?,", len(ids))
+	placeholders = placeholders[:len(placeholders)-1] // trim trailing comma
+
+	// Convert []int64 to []interface{} for QueryContext variadic args.
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+
+	// --- Fetch core book rows + series in one query ---
+	bookQuery := `
+		SELECT
+			b.id, b.uuid, b.title, b.sort, b.author_sort, b.timestamp, b.pub_date,
+			b.series_index, b.last_modified, b.path, b.has_cover, b.calibre_id, b.description,
+			s.id, s.name
+		FROM books b
+		LEFT JOIN series s ON b.series_id = s.id
+		WHERE b.id IN (` + placeholders + `)`
+
+	bRows, err := r.db.QueryContext(ctx, bookQuery, args...)
+	if err != nil {
+		r.log.Error("failed to batch fetch books", "error", err)
+		return nil, fmt.Errorf("failed to batch fetch books: %w", err)
+	}
+	defer bRows.Close()
+
+	bookMap := make(map[int64]*domain.Book, len(ids))
+	for bRows.Next() {
+		var book domain.Book
+		var seriesID sql.NullInt64
+		var seriesName sql.NullString
+		if err := bRows.Scan(
+			&book.ID, &book.UUID, &book.Title, &book.Sort, &book.AuthorSort, &book.Timestamp, &book.PubDate,
+			&book.SeriesIndex, &book.LastModified, &book.Path, &book.HasCover, &book.CalibreID, &book.Description,
+			&seriesID, &seriesName,
+		); err != nil {
+			r.log.Error("failed to scan book row in batch", "error", err)
+			return nil, fmt.Errorf("failed to scan book row: %w", err)
 		}
-		if book != nil {
-			books = append(books, *book)
+		if seriesID.Valid {
+			book.Series = &domain.Series{ID: seriesID.Int64, Name: seriesName.String}
+		}
+		b := book
+		bookMap[book.ID] = &b
+	}
+	if err := bRows.Err(); err != nil {
+		r.log.Error("error during batch book row iteration", "error", err)
+		return nil, fmt.Errorf("iterating book rows: %w", err)
+	}
+
+	// --- Batch fetch authors ---
+	authorQuery := `
+		SELECT bal.book_id, a.id, a.name, a.sort
+		FROM authors a
+		JOIN books_authors_link bal ON a.id = bal.author_id
+		WHERE bal.book_id IN (` + placeholders + `)`
+
+	aRows, err := r.db.QueryContext(ctx, authorQuery, args...)
+	if err != nil {
+		r.log.Error("failed to batch fetch authors", "error", err)
+		return nil, fmt.Errorf("failed to batch fetch authors: %w", err)
+	}
+	defer aRows.Close()
+
+	for aRows.Next() {
+		var bookID int64
+		var a domain.Author
+		if err := aRows.Scan(&bookID, &a.ID, &a.Name, &a.Sort); err != nil {
+			r.log.Error("failed to scan author row in batch", "error", err)
+			return nil, fmt.Errorf("failed to scan author row: %w", err)
+		}
+		if b, ok := bookMap[bookID]; ok {
+			b.Authors = append(b.Authors, a)
+		}
+	}
+	if err := aRows.Err(); err != nil {
+		r.log.Error("error during batch author row iteration", "error", err)
+		return nil, fmt.Errorf("iterating author rows: %w", err)
+	}
+
+	// --- Batch fetch tags ---
+	tagQuery := `
+		SELECT btl.book_id, t.id, t.name
+		FROM tags t
+		JOIN books_tags_link btl ON t.id = btl.tag_id
+		WHERE btl.book_id IN (` + placeholders + `)`
+
+	tRows, err := r.db.QueryContext(ctx, tagQuery, args...)
+	if err != nil {
+		r.log.Error("failed to batch fetch tags", "error", err)
+		return nil, fmt.Errorf("failed to batch fetch tags: %w", err)
+	}
+	defer tRows.Close()
+
+	for tRows.Next() {
+		var bookID int64
+		var t domain.Tag
+		if err := tRows.Scan(&bookID, &t.ID, &t.Name); err != nil {
+			r.log.Error("failed to scan tag row in batch", "error", err)
+			return nil, fmt.Errorf("failed to scan tag row: %w", err)
+		}
+		if b, ok := bookMap[bookID]; ok {
+			b.Tags = append(b.Tags, t)
+		}
+	}
+	if err := tRows.Err(); err != nil {
+		r.log.Error("error during batch tag row iteration", "error", err)
+		return nil, fmt.Errorf("iterating tag rows: %w", err)
+	}
+
+	// --- Batch fetch formats ---
+	formatQuery := `
+		SELECT book_id, id, format, uncompressed_size, name
+		FROM formats
+		WHERE book_id IN (` + placeholders + `)`
+
+	fRows, err := r.db.QueryContext(ctx, formatQuery, args...)
+	if err != nil {
+		r.log.Error("failed to batch fetch formats", "error", err)
+		return nil, fmt.Errorf("failed to batch fetch formats: %w", err)
+	}
+	defer fRows.Close()
+
+	for fRows.Next() {
+		var bookID int64
+		var f domain.Format
+		if err := fRows.Scan(&bookID, &f.ID, &f.Format, &f.UncompressedSize, &f.Name); err != nil {
+			r.log.Error("failed to scan format row in batch", "error", err)
+			return nil, fmt.Errorf("failed to scan format row: %w", err)
+		}
+		if b, ok := bookMap[bookID]; ok {
+			b.Formats = append(b.Formats, f)
+		}
+	}
+	if err := fRows.Err(); err != nil {
+		r.log.Error("error during batch format row iteration", "error", err)
+		return nil, fmt.Errorf("iterating format rows: %w", err)
+	}
+
+	// Assemble results in the original ID order, skipping missing books.
+	books := make([]domain.Book, 0, len(ids))
+	for _, id := range ids {
+		if b, ok := bookMap[id]; ok {
+			books = append(books, *b)
 		}
 	}
 	return books, nil
