@@ -98,8 +98,3 @@ func (s *BookService) SearchBooks(ctx context.Context, query string, page int) (
 func (s *BookService) GetBookByID(ctx context.Context, id int64) (*domain.Book, error) {
 	return s.repo.GetByID(ctx, id)
 }
-
-// GetLinkGenerator returns the link generator for use in handlers.
-func (s *BookService) GetLinkGenerator() *utils.LinkGenerator {
-	return s.linkGenerator
-}
