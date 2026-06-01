@@ -36,13 +36,9 @@ func TestUserRepository(t *testing.T) {
 		Password: "hashed-password",
 	}
 
-	// Test Save
-	if err := repo.Save(ctx, user); err != nil {
-		t.Fatalf("failed to save user: %v", err)
-	}
-
-	if user.ID == 0 {
-		t.Fatal("user ID should not be 0 after save")
+	// Test CreateUserIfNotExists
+	if err := repo.CreateUserIfNotExists(ctx, user); err != nil {
+		t.Fatalf("failed to create user: %v", err)
 	}
 
 	// Test GetByUsername
@@ -72,10 +68,9 @@ func TestUserRepository(t *testing.T) {
 		t.Fatal("expected nil for nonexistent user")
 	}
 
-	// Test Update password (ON CONFLICT)
-	user.Password = "new-hashed-password"
-	if err := repo.Save(ctx, user); err != nil {
-		t.Fatalf("failed to update user: %v", err)
+	// Test UpdatePassword
+	if err := repo.UpdatePassword(ctx, user.Username, "new-hashed-password"); err != nil {
+		t.Fatalf("failed to update password: %v", err)
 	}
 
 	got, _ = repo.GetByUsername(ctx, "admin")

@@ -34,20 +34,6 @@ func (r *sqliteUserRepository) GetByUsername(ctx context.Context, username strin
 	return &user, nil
 }
 
-func (r *sqliteUserRepository) Save(ctx context.Context, user *domain.User) error {
-	r.log.Debug("saving user", "username", user.Username)
-	query := `
-		INSERT INTO users (username, password) VALUES (?, ?)
-		ON CONFLICT(username) DO UPDATE SET password=excluded.password
-		RETURNING id`
-	err := r.db.QueryRowContext(ctx, query, user.Username, user.Password).Scan(&user.ID)
-	if err != nil {
-		r.log.Error("failed to save user", "username", user.Username, "error", err)
-		return fmt.Errorf("failed to save user: %w", err)
-	}
-	return nil
-}
-
 func (r *sqliteUserRepository) CreateUserIfNotExists(ctx context.Context, user *domain.User) error {
 	r.log.Debug("creating user if not exists", "username", user.Username)
 	existing, err := r.GetByUsername(ctx, user.Username)

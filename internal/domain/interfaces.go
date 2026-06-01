@@ -23,7 +23,6 @@ type BookRepository interface {
 // UserRepository defines the interface for user data access.
 type UserRepository interface {
 	GetByUsername(ctx context.Context, username string) (*User, error)
-	Save(ctx context.Context, user *User) error
 	CreateUserIfNotExists(ctx context.Context, user *User) error
 	DeleteUser(ctx context.Context, username string) error
 	UpdatePassword(ctx context.Context, username, password string) error
