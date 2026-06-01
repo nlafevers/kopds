@@ -5,10 +5,7 @@ import (
 	"time"
 )
 
-const (
-	AtomNamespace = "http://www.w3.org/2005/Atom"
-	OPDSNamespace = "http://opds-spec.org/2010/catalog"
-)
+const OPDSNamespace = "http://opds-spec.org/2010/catalog"
 
 // Feed represents an Atom Feed element, the root of an OPDS catalog.
 type Feed struct {
@@ -18,7 +15,6 @@ type Feed struct {
 	ID      string    `xml:"id"`
 	Title   string    `xml:"title"`
 	Updated time.Time `xml:"updated"`
-	Icon    string    `xml:"icon,omitempty"`
 
 	Author  *Author  `xml:"author,omitempty"`
 	Links   []Link   `xml:"link"`
@@ -27,17 +23,14 @@ type Feed struct {
 
 // Entry represents an individual catalog entry in an Atom Feed.
 type Entry struct {
-	ID        string    `xml:"id"`
-	Title     string    `xml:"title"`
-	Updated   time.Time `xml:"updated"`
-	Published time.Time `xml:"published,omitempty"`
+	ID      string    `xml:"id"`
+	Title   string    `xml:"title"`
+	Updated time.Time `xml:"updated"`
 
-	Authors    []Author   `xml:"author,omitempty"`
-	Content    *Content   `xml:"content,omitempty"`
-	Summary    *Content   `xml:"summary,omitempty"`
-	Links      []Link     `xml:"link"`
-	Categories []Category `xml:"category,omitempty"`
-	Rights     string     `xml:"rights,omitempty"`
+	Authors []Author `xml:"author,omitempty"`
+	Content *Content `xml:"content,omitempty"`
+	Summary *Content `xml:"summary,omitempty"`
+	Links   []Link   `xml:"link"`
 }
 
 // Author represents an Atom author element.
@@ -48,29 +41,10 @@ type Author struct {
 
 // Link represents an Atom link element, used for navigation and acquisition.
 type Link struct {
-	Rel      string `xml:"rel,attr"`
-	Type     string `xml:"type,attr,omitempty"`
-	Href     string `xml:"href,attr"`
-	Title    string `xml:"title,attr,omitempty"`
-	Count    int    `xml:"opds:count,attr,omitempty"`
-	Price    string `xml:"opds:price,attr,omitempty"`
-	Currency string `xml:"opds:currency,attr,omitempty"`
-
-	// Support for opds:indirectAcquisition to future-proof the acquisition pipeline.
-	IndirectAcquisitions []IndirectAcquisition `xml:"http://opds-spec.org/2010/catalog indirectAcquisition,omitempty"`
-}
-
-// IndirectAcquisition represents an opds:indirectAcquisition element.
-type IndirectAcquisition struct {
-	Type                 string                `xml:"type,attr"`
-	IndirectAcquisitions []IndirectAcquisition `xml:"indirectAcquisition,omitempty"`
-}
-
-// Category represents an Atom category element.
-type Category struct {
-	Term   string `xml:"term,attr"`
-	Scheme string `xml:"scheme,attr,omitempty"`
-	Label  string `xml:"label,attr,omitempty"`
+	Rel   string `xml:"rel,attr"`
+	Type  string `xml:"type,attr,omitempty"`
+	Href  string `xml:"href,attr"`
+	Title string `xml:"title,attr,omitempty"`
 }
 
 // Content represents an Atom content or summary element.
