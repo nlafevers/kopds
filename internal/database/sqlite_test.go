@@ -1,8 +1,11 @@
 package database
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -61,6 +64,40 @@ func TestForeignKeyEnforcement(t *testing.T) {
 			t.Fatal("expected FK violation error, got nil")
 		}
 	})
+}
+
+func TestEnforceStorageCapDisabled(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	storage := &Storage{log: logger}
+
+	// Use a path that does not exist; a disabled cap must not stat the file.
+	nonExistentPath := filepath.Join(t.TempDir(), "does_not_exist.db")
+
+	t.Run("cap zero skips file stat and returns false", func(t *testing.T) {
+		pruned, err := storage.EnforceStorageCap(nonExistentPath, 0)
+		if err != nil {
+			t.Errorf("expected no error with cap=0, got %v", err)
+		}
+		if pruned {
+			t.Error("expected pruned=false with cap=0")
+		}
+	})
+
+	t.Run("negative cap skips file stat and returns false", func(t *testing.T) {
+		pruned, err := storage.EnforceStorageCap(nonExistentPath, -1)
+		if err != nil {
+			t.Errorf("expected no error with cap=-1, got %v", err)
+		}
+		if pruned {
+			t.Error("expected pruned=false with cap=-1")
+		}
+	})
+
+	output := buf.String()
+	if !strings.Contains(output, "storage cap disabled") {
+		t.Errorf("expected disabled cap log message, got: %s", output)
+	}
 }
 
 func TestOpenSQLitePermissions(t *testing.T) {

@@ -269,6 +269,10 @@ func (s *Storage) logger() *slog.Logger {
 // EnforceStorageCap checks if the database file exceeds the size limit.
 func (s *Storage) EnforceStorageCap(path string, capMB int) (bool, error) {
 	log := s.logger()
+	if capMB <= 0 {
+		log.Debug("storage cap disabled, skipping enforcement", "database_path", path)
+		return false, nil
+	}
 
 	info, err := os.Stat(path)
 	if err != nil {
