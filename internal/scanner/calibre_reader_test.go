@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,6 +96,105 @@ func setupMockCalibreDB(t *testing.T) string {
 	}
 
 	return dbPath
+}
+
+func TestCalibreDSN(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		wantDSN  string
+		wantMode string
+	}{
+		{
+			name:    "plain path",
+			path:    "/data/metadata.db",
+			wantDSN: "file:%2Fdata%2Fmetadata.db?mode=ro",
+		},
+		{
+			name:    "path with spaces",
+			path:    "/my library/metadata.db",
+			wantDSN: "file:%2Fmy%20library%2Fmetadata.db?mode=ro",
+		},
+		{
+			name:    "path with hash",
+			path:    "/data/my#library/metadata.db",
+			wantDSN: "file:%2Fdata%2Fmy%23library%2Fmetadata.db?mode=ro",
+		},
+		{
+			name:    "path with percent",
+			path:    "/data/100%books/metadata.db",
+			wantDSN: "file:%2Fdata%2F100%25books%2Fmetadata.db?mode=ro",
+		},
+		{
+			name:    "path with question mark",
+			path:    "/data/what?/metadata.db",
+			wantDSN: "file:%2Fdata%2Fwhat%3F%2Fmetadata.db?mode=ro",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := calibreDSN(tc.path)
+			if got != tc.wantDSN {
+				t.Errorf("calibreDSN(%q) = %q, want %q", tc.path, got, tc.wantDSN)
+			}
+			if !strings.HasSuffix(got, "?mode=ro") {
+				t.Errorf("calibreDSN(%q) does not end with ?mode=ro: %q", tc.path, got)
+			}
+		})
+	}
+}
+
+func TestNewCalibreReaderWithSpacesInPath(t *testing.T) {
+	// Create a temp directory with a space in its name to verify that
+	// NewCalibreReader correctly handles paths containing special characters.
+	parentDir := t.TempDir()
+	spacedDir := filepath.Join(parentDir, "my library")
+	if err := os.MkdirAll(spacedDir, 0o750); err != nil {
+		t.Fatalf("failed to create directory with space: %v", err)
+	}
+	dbPath := filepath.Join(spacedDir, "metadata.db")
+
+	// Create a minimal Calibre-like schema in the test DB.
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to create mock db: %v", err)
+	}
+	schema := `
+	CREATE TABLE books (
+		id INTEGER PRIMARY KEY, uuid TEXT, title TEXT, sort TEXT,
+		author_sort TEXT, timestamp TIMESTAMP, pubdate TIMESTAMP,
+		series_index REAL, last_modified TIMESTAMP, path TEXT, has_cover BOOLEAN
+	);
+	CREATE TABLE authors (id INTEGER PRIMARY KEY, name TEXT, sort TEXT);
+	CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT);
+	CREATE TABLE series (id INTEGER PRIMARY KEY, name TEXT);
+	CREATE TABLE comments (id INTEGER PRIMARY KEY, book INTEGER, text TEXT);
+	CREATE TABLE data (id INTEGER PRIMARY KEY, book INTEGER, format TEXT, uncompressed_size INTEGER, name TEXT);
+	CREATE TABLE books_authors_link (id INTEGER PRIMARY KEY, book INTEGER, author INTEGER);
+	CREATE TABLE books_tags_link (id INTEGER PRIMARY KEY, book INTEGER, tag INTEGER);
+	CREATE TABLE books_series_link (id INTEGER PRIMARY KEY, book INTEGER, series INTEGER);
+	`
+	if _, err := db.Exec(schema); err != nil {
+		db.Close()
+		t.Fatalf("failed to create schema: %v", err)
+	}
+	db.Close()
+
+	reader, err := NewCalibreReader(dbPath)
+	if err != nil {
+		t.Fatalf("NewCalibreReader with spaced path failed: %v", err)
+	}
+	defer reader.Close()
+
+	ctx := context.Background()
+	books, err := reader.GetChangedBooks(ctx, time.Time{})
+	if err != nil {
+		t.Fatalf("GetChangedBooks failed: %v", err)
+	}
+	if len(books) != 0 {
+		t.Errorf("expected 0 books, got %d", len(books))
+	}
 }
 
 func TestCalibreReader(t *testing.T) {

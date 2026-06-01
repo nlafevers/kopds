@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -15,10 +16,18 @@ type CalibreReader struct {
 	db *sql.DB
 }
 
+// calibreDSN builds a read-only SQLite URI for the given file path.
+// url.PathEscape percent-encodes characters that are special in URI paths
+// (spaces, #, ?, %, etc.) so that they are not misinterpreted by the driver.
+func calibreDSN(path string) string {
+	return "file:" + url.PathEscape(path) + "?mode=ro"
+}
+
 // NewCalibreReader opens the Calibre metadata.db in read-only mode.
 func NewCalibreReader(path string) (*CalibreReader, error) {
 	// Calibre uses standard SQLite. The connection MUST be read-only.
-	dsn := fmt.Sprintf("file:%s?mode=ro", path)
+	// Use calibreDSN to safely encode special characters in the path.
+	dsn := calibreDSN(path)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open calibre database: %w", err)
