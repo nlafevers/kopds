@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -105,23 +106,27 @@ func printUsage() {
 	fmt.Println("  --password-stdin                Read password from stdin")
 }
 
-func createUser(cfg *config.Config, username, password string) {
-	operation := "create-user"
+func openCLIStorage(cfg *config.Config) (*sql.DB, domain.UserRepository) {
 	db, err := database.NewSQLite(cfg.DatabasePath, true)
 	if err != nil {
-		logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
 		fmt.Printf("Failed to connect to database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
 
 	if err := database.Migrate(db); err != nil {
-		logger.LogCLIFailure(nil, operation, username, "failed to run migrations: "+err.Error())
+		db.Close()
 		fmt.Printf("Failed to run migrations: %v\n", err)
 		os.Exit(1)
 	}
 
-	userRepo := database.NewUserRepository(db, slog.Default())
+	return db, database.NewUserRepository(db, slog.Default())
+}
+
+func createUser(cfg *config.Config, username, password string) {
+	operation := "create-user"
+	db, userRepo := openCLIStorage(cfg)
+	defer db.Close()
+
 	hash, err := api.HashPassword(password)
 	if err != nil {
 		logger.LogCLIFailure(nil, operation, username, "failed to hash password: "+err.Error())
@@ -151,21 +156,9 @@ func createUser(cfg *config.Config, username, password string) {
 
 func deleteUser(cfg *config.Config, username string) {
 	operation := "delete-user"
-	db, err := database.NewSQLite(cfg.DatabasePath, true)
-	if err != nil {
-		logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
-		fmt.Printf("Failed to connect to database: %v\n", err)
-		os.Exit(1)
-	}
+	db, userRepo := openCLIStorage(cfg)
 	defer db.Close()
 
-	if err := database.Migrate(db); err != nil {
-		logger.LogCLIFailure(nil, operation, username, "failed to run migrations: "+err.Error())
-		fmt.Printf("Failed to run migrations: %v\n", err)
-		os.Exit(1)
-	}
-
-	userRepo := database.NewUserRepository(db, slog.Default())
 	if err := userRepo.DeleteUser(context.Background(), username); err != nil {
 		logger.LogCLIFailure(nil, operation, username, "failed to delete user: "+err.Error())
 		fmt.Printf("Failed to delete user: %v\n", err)
@@ -175,23 +168,12 @@ func deleteUser(cfg *config.Config, username string) {
 	logger.LogCLISuccess(nil, operation, username)
 	fmt.Printf("User '%s' deleted successfully.\n", username)
 }
+
 func changePassword(cfg *config.Config, username, password string) {
 	operation := "change-password"
-	db, err := database.NewSQLite(cfg.DatabasePath, true)
-	if err != nil {
-		logger.LogCLIFailure(nil, operation, username, "failed to connect to database: "+err.Error())
-		fmt.Printf("Failed to connect to database: %v\n", err)
-		os.Exit(1)
-	}
+	db, userRepo := openCLIStorage(cfg)
 	defer db.Close()
 
-	if err := database.Migrate(db); err != nil {
-		logger.LogCLIFailure(nil, operation, username, "failed to run migrations: "+err.Error())
-		fmt.Printf("Failed to run migrations: %v\n", err)
-		os.Exit(1)
-	}
-
-	userRepo := database.NewUserRepository(db, slog.Default())
 	hash, err := api.HashPassword(password)
 	if err != nil {
 		logger.LogCLIFailure(nil, operation, username, "failed to hash password: "+err.Error())
