@@ -68,7 +68,7 @@ docker compose version
 - *If you don't have them, follow the [official Docker installation guide](https://docs.docker.com/get-docker/).*
 
 #### 2. If installing Natively
-- **Go compiler:** you need version 1.25+. To check your version, run:
+- **Go compiler:** you need version 1.26.x or later. To check your version, run:
 ```bash
 go version
 ```
@@ -267,6 +267,10 @@ All settings can be provided as environment variables (prefixed with `KOPDS_`) o
 | `KOPDS_IMAGE_CACHE_PATH` | Directory for resized cover thumbnails. | `cache/images` |
 | `KOPDS_IMAGE_CACHE_MAX_COUNT` | Maximum number of images to keep in cache. | `1000` |
 | `KOPDS_STORAGE_CAP_MB` | Maximum database size in MB (0 to disable). | `0` |
+| `KOPDS_RATE_LIMIT_ENABLED` | Enable rate limiting on failed authentication attempts. | `true` |
+| `KOPDS_RATE_LIMIT_PER_MINUTE` | Maximum failed auth attempts allowed per minute per IP. | `30` |
+| `KOPDS_RATE_LIMIT_BURST` | Maximum burst size for failed auth rate limiting. | `10` |
+| `KOPDS_TRUST_PROXY_HEADERS` | Trust `X-Forwarded-For` headers for client IP detection (enable only behind a trusted reverse proxy). | `false` |
 
 ---
 
