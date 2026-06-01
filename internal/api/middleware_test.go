@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nlafevers/kopds/internal/domain"
+	"golang.org/x/time/rate"
 )
 
 func TestGenerateRequestID(t *testing.T) {
@@ -65,7 +66,7 @@ func TestBasicAuth(t *testing.T) {
 		w.Write([]byte("OK"))
 	})
 
-	authMiddleware := BasicAuth(userRepo, nextHandler)
+	authMiddleware := BasicAuth(userRepo, nil, nextHandler)
 	tests := []struct {
 		name           string
 		username       string
@@ -99,4 +100,73 @@ func TestBasicAuth(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBasicAuthRateLimit(t *testing.T) {
+	password := "secret"
+	hash, _ := HashPassword(password)
+
+	userRepo := &mockUserRepo{getByUsernameFunc: func(ctx context.Context, username string) (*domain.User, error) {
+		if username == "admin" {
+			return &domain.User{Username: "admin", Password: hash}, nil
+		}
+		return nil, nil
+	}}
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	t.Run("nil limiter allows all requests through", func(t *testing.T) {
+		handler := BasicAuth(userRepo, nil, nextHandler)
+		for i := 0; i < 20; i++ {
+			req := httptest.NewRequest("GET", "/", nil)
+			req.SetBasicAuth("admin", "wrongpassword")
+			req.RemoteAddr = "1.2.3.4:1234"
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+			if rr.Code != http.StatusUnauthorized {
+				t.Errorf("request %d: expected 401, got %d", i, rr.Code)
+			}
+		}
+	})
+
+	t.Run("rate limiter returns 429 after burst exhausted on failed auth", func(t *testing.T) {
+		// Use rate=0 (no refill) and burst=3 so the 4th failed attempt triggers 429.
+		limiter := NewIPRateLimiter(rate.Limit(0), 3, false)
+		handler := BasicAuth(userRepo, limiter, nextHandler)
+
+		got429 := false
+		for i := 0; i < 10; i++ {
+			req := httptest.NewRequest("GET", "/", nil)
+			req.SetBasicAuth("admin", "wrongpassword")
+			req.RemoteAddr = "10.0.0.1:5678"
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+			if rr.Code == http.StatusTooManyRequests {
+				got429 = true
+				break
+			}
+		}
+		if !got429 {
+			t.Error("expected a 429 Too Many Requests after burst exhausted, but never got one")
+		}
+	})
+
+	t.Run("rate limiter does not trigger on successful auth", func(t *testing.T) {
+		// Use burst=1 so any failed attempt would immediately exhaust the limiter.
+		limiter := NewIPRateLimiter(rate.Every(1000), 1, false)
+		handler := BasicAuth(userRepo, limiter, nextHandler)
+
+		for i := 0; i < 5; i++ {
+			req := httptest.NewRequest("GET", "/", nil)
+			req.SetBasicAuth("admin", "secret")
+			req.RemoteAddr = "10.0.0.2:5678"
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+			if rr.Code != http.StatusOK {
+				t.Errorf("successful auth request %d: expected 200, got %d", i, rr.Code)
+			}
+		}
+	})
 }

@@ -6,10 +6,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/nlafevers/kopds/internal/domain"
+	"golang.org/x/time/rate"
 )
 
 type responseWriter struct {
@@ -94,22 +98,24 @@ func generateRequestID() string {
 }
 
 // BasicAuth middleware performs HTTP Basic Authentication and stores the user in context.
-func BasicAuth(userRepo domain.UserRepository, next http.Handler) http.Handler {
+// When a limiter is provided, failed auth attempts are counted against it; if the limiter
+// denies the request, 429 Too Many Requests is returned instead of 401 Unauthorized.
+func BasicAuth(userRepo domain.UserRepository, limiter *IPRateLimiter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username, password, ok := r.BasicAuth()
 		if !ok {
-			unauthorized(w)
+			rateLimitedUnauthorized(w, r, limiter)
 			return
 		}
 
 		user, err := userRepo.GetByUsername(r.Context(), username)
 		if err != nil || user == nil {
-			unauthorized(w)
+			rateLimitedUnauthorized(w, r, limiter)
 			return
 		}
 
 		if !CheckPassword(user.Password, password) {
-			unauthorized(w)
+			rateLimitedUnauthorized(w, r, limiter)
 			return
 		}
 
@@ -120,7 +126,90 @@ func BasicAuth(userRepo domain.UserRepository, next http.Handler) http.Handler {
 	})
 }
 
+// rateLimitedUnauthorized checks the rate limiter on a failed auth attempt.
+// If the limiter is non-nil and the IP has exceeded its limit, 429 is returned.
+// Otherwise 401 Unauthorized is returned.
+func rateLimitedUnauthorized(w http.ResponseWriter, r *http.Request, limiter *IPRateLimiter) {
+	if limiter != nil {
+		ip := clientIP(r, limiter.trustProxy)
+		if !limiter.GetLimiter(ip).Allow() {
+			GetLogger(r.Context()).Warn("rate limit exceeded on failed auth", "ip", ip, "source", "API")
+			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
+	}
+	unauthorized(w)
+}
+
 func unauthorized(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="KOPDS"`)
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+}
+
+// IPRateLimiter handles rate limiting per IP address.
+type IPRateLimiter struct {
+	ips        map[string]*rate.Limiter
+	mu         sync.RWMutex
+	r          rate.Limit
+	b          int
+	trustProxy bool
+}
+
+func NewIPRateLimiter(r rate.Limit, b int, trustProxy bool) *IPRateLimiter {
+	return &IPRateLimiter{
+		ips:        make(map[string]*rate.Limiter),
+		r:          r,
+		b:          b,
+		trustProxy: trustProxy,
+	}
+}
+
+func (i *IPRateLimiter) GetLimiter(ip string) *rate.Limiter {
+	i.mu.RLock()
+	limiter, exists := i.ips[ip]
+	i.mu.RUnlock()
+
+	if !exists {
+		i.mu.Lock()
+		// Double-check after acquiring write lock.
+		if limiter, exists = i.ips[ip]; !exists {
+			limiter = rate.NewLimiter(i.r, i.b)
+			i.ips[ip] = limiter
+		}
+		i.mu.Unlock()
+	}
+
+	return limiter
+}
+
+// clientIP returns the client's IP address. If trustProxy is true and the
+// X-Forwarded-For header is present, the first (leftmost) address is used.
+// Otherwise the IP is taken from r.RemoteAddr.
+func clientIP(r *http.Request, trustProxy bool) string {
+	if trustProxy {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			ip := strings.TrimSpace(strings.SplitN(xff, ",", 2)[0])
+			if ip != "" {
+				return ip
+			}
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// RateLimitMiddleware applies rate limiting per IP.
+func RateLimitMiddleware(limiter *IPRateLimiter, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip := clientIP(r, limiter.trustProxy)
+		if !limiter.GetLimiter(ip).Allow() {
+			GetLogger(r.Context()).Warn("rate limit exceeded", "ip", ip, "source", "API")
+			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

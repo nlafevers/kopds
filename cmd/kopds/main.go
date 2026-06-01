@@ -24,6 +24,7 @@ import (
 	"github.com/nlafevers/kopds/internal/service"
 	"github.com/nlafevers/kopds/pkg/utils"
 	"golang.org/x/term"
+	"golang.org/x/time/rate"
 )
 
 const appName = "kopds"
@@ -319,7 +320,15 @@ func runServer(cfg *config.Config, log *slog.Logger) {
 	protected.HandleFunc("GET /opds/v1.2/download/{id}/{format}", h.BookFileHandler)
 	protected.HandleFunc("GET /opds/v1.2/opensearch.xml", h.OpenSearchDescriptorHandler)
 
-	mux.Handle("/opds/v1.2/", api.BasicAuth(userRepo, protected))
+	var authLimiter *api.IPRateLimiter
+	if cfg.RateLimitEnabled {
+		authLimiter = api.NewIPRateLimiter(
+			rate.Every(time.Minute/time.Duration(cfg.RateLimitPerMinute)),
+			cfg.RateLimitBurst,
+			cfg.TrustProxyHeaders,
+		)
+	}
+	mux.Handle("/opds/v1.2/", api.BasicAuth(userRepo, authLimiter, protected))
 
 	// 8. Start Server
 	srv := &http.Server{
