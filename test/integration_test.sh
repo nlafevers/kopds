@@ -47,7 +47,8 @@ touch "$LIB_DIR/Author Name/Book Title/Book Title.epub"
 
 # Build server
 echo "Building KOPDS..."
-GOCACHE=/tmp/kopds-gocache go build -o $BIN_NAME ../cmd/kopds
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GOCACHE=/tmp/kopds-gocache go build -o $BIN_NAME "$SCRIPT_DIR/../cmd/kopds"
 
 # Create user via CLI
 echo "Creating test user..."
