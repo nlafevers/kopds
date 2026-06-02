@@ -12,7 +12,7 @@ KOPDS is maintained alongside KOSYNC with a maximum-uniformity goal. Functions t
 - **Core Technologies:**
   - **Language:** Go (Golang) for a single-binary, low-memory footprint.
   - **Database:** Pure Go SQLite (`modernc.org/sqlite`) for local indexing and multi-user support.
-  - **Web Framework:** Native `net/http.ServeMux` (Go 1.22+) for lightweight, dependency-free routing.
+  - **Web Framework:** Native `net/http.ServeMux` (Go 1.25+) for lightweight, dependency-free routing.
   - **Image Processing:** `disintegration/imaging` for on-the-fly cover resizing.
 - **Architecture:** 
   - **Clean Architecture:** Separation of domain logic, use cases, and infrastructure.
