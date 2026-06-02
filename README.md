@@ -281,6 +281,8 @@ KOPDS uses structured logging via the Go standard library `slog` to provide clea
 ### Log Destinations
 When `KOPDS_LOG_PATH` is set, the **server** writes structured logs to both stderr and that file. **CLI** commands (`create-user`, `delete-user`, `change-password`) write structured logs to the file only — or discard them when no path is set — so the terminal shows only the one-line human-readable result.
 
+**Docker note:** `docker exec` runs in a separate process — its output goes directly to your terminal, not through Docker's logging driver. CLI user-management commands therefore never appear in `docker logs` regardless of log settings. If you need a persistent audit trail of CLI operations, set `KOPDS_LOG_PATH` to a path on a mounted volume (e.g., `/data/kopds.log`) and read that file directly.
+
 ### Log Levels
 You can adjust the verbosity of the logs using the `KOPDS_LOG_LEVEL` setting:
 
