@@ -37,14 +37,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 2. Initialize Logger
-	log := logger.New(cfg.LogLevel, cfg.JSONLog, cfg.LogPath)
-
 	if len(os.Args) > 1 {
+		logger.NewCLI(cfg.LogLevel, cfg.JSONLog, cfg.LogPath)
 		runCLI(cfg)
 		return
 	}
 
+	// 2. Initialize Logger
+	log := logger.New(cfg.LogLevel, cfg.JSONLog, cfg.LogPath)
 	runServer(cfg, log)
 }
 
