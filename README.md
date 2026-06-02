@@ -19,11 +19,11 @@ KOPDS is a high-performance, lightweight OPDS (Open Publication Distribution Sys
 4.  [Quick Start (Docker)](#-quick-start-docker)
 5.  [Usage with KOReader](#-usage-with-koreader)
 6.  [Native Installation](#-native-installation)
-7.  [CLI User Management](#-cli-user-management)
-8.  [Configuration Reference](#-configuration-reference)
-9.  [Advanced Logging](#-advanced-logging)
-10. [Technical Architecture](#-technical-architecture)
-11. [Security & Deployment](#-security--deployment)
+7.  [Configuration Reference](#-configuration-reference)
+8.  [CLI User Management](#-cli-user-management)
+9.  [Logging](#-logging)
+10. [Technical Overview](#-technical-overview)
+11. [Security](#-security)
 12. [Troubleshooting](#-troubleshooting)
 13. [License](#-license)
 
@@ -68,7 +68,7 @@ docker compose version
 - *If you don't have them, follow the [official Docker installation guide](https://docs.docker.com/get-docker/).*
 
 #### 2. If installing Natively
-- **Go compiler:** you need version 1.26.x or later. To check your version, run:
+- **Go compiler:** you need version 1.25.x or later. To check your version, run:
 ```bash
 go version
 ```
@@ -79,12 +79,10 @@ go version
 
 - *To install Rclone, see the [official documentation](https://rclone.org/install/).*
 
-#### 4. Reverse Proxy ([recommended](#reverse-proxy))
-- While KOPDS itself uses HTTP Basic Authentication according to the OPDS 1.2 spec, for security reasons you should place it behind a reverse proxy.  Caddy is recommended to keep a pure-Go environment.  Additionally, other services you might want to run off the same server might need HTTPS, such as the KOReader sync server.
+#### 4. Reverse Proxy (recommended for production)
+- KOPDS uses HTTP Basic Authentication, which transmits credentials in plain text. For any internet-facing deployment you should place it behind an HTTPS reverse proxy (Caddy is a good pure-Go choice). Reverse-proxy setup instructions live in the KOSERVER project deployment guide.
 > [!NOTE]
 > A reverse proxy alone does not make your server completely secure.  You are responsible for properly configuring your server to meet your security needs.
-
-- *To install Caddy, see the [official documentation](https://caddyserver.com/docs/install).*
 
 ### Hardware Requirements
 
@@ -203,18 +201,40 @@ cd kopds
 go build -o kopds ./cmd/kopds
 ```
 
-### 2. Configure
-KOPDS can be configured via environment variables or a `config.yaml` file in the same directory (or a `./config` subdirectory). 
-
-> [!NOTE]
-> Environment variables always take precedence over settings in `config.yaml`. In Docker, environment variables are the standard way to configure the container, but you can also mount a `config.yaml` to `/app/config.yaml` if you prefer.
-
+### 2. Configure and Run
+KOPDS reads its settings from environment variables or a `config.yaml` file (see [Configuration Reference](#-configuration-reference) for every option). At minimum, set the path to your Calibre library, create a user, and start the server:
 ```bash
-# Set required environment variables
 export KOPDS_LIBRARY_PATH=/path/to/calibre
 ./kopds create-user admin
 ./kopds
 ```
+
+> [!NOTE]
+> Environment variables always take precedence over settings in `config.yaml`. In Docker, environment variables are the standard way to configure the container, but you can also mount a `config.yaml` to `/app/config.yaml` if you prefer.
+
+---
+
+## ⚙️ Configuration Reference
+
+All settings can be provided as environment variables (prefixed with `KOPDS_`) or in a `config.yaml` file placed in the working directory (or a `./config` subdirectory).
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `KOPDS_LIBRARY_PATH` | Path to your Calibre library folder. | - |
+| `KOPDS_DATABASE_PATH` | Path where the local SQLite index will be stored. | `./data/kopds.db` |
+| `KOPDS_BASE_URL` | The external URL used for generating OPDS links. | `http://localhost:8080` |
+| `KOPDS_PORT` | The port the server listens on. | `8080` |
+| `KOPDS_LOG_LEVEL` | Logging verbosity (`debug`, `info`, `warn`, `error`). | `info` |
+| `KOPDS_JSON_LOG` | Enable structured JSON logging (best for ELK/Loki). | `false` |
+| `KOPDS_LOG_PATH` | Optional log file. When set, the server writes logs to this file **and** stderr; CLI commands log to this file only. | - |
+| `KOPDS_SYNC_INTERVAL` | How often to scan Calibre for changes (e.g., `1h`, `30m`). | `30m` |
+| `KOPDS_IMAGE_CACHE_PATH` | Directory for resized cover thumbnails. | `cache/images` |
+| `KOPDS_IMAGE_CACHE_MAX_COUNT` | Maximum number of images to keep in cache. | `1000` |
+| `KOPDS_STORAGE_CAP_MB` | Maximum database size in MB (0 to disable). | `0` |
+| `KOPDS_RATE_LIMIT_ENABLED` | Enable rate limiting on failed authentication attempts. | `true` |
+| `KOPDS_RATE_LIMIT_PER_MINUTE` | Maximum failed auth attempts allowed per minute per IP. | `30` |
+| `KOPDS_RATE_LIMIT_BURST` | Maximum burst size for failed auth rate limiting. | `10` |
+| `KOPDS_TRUST_PROXY_HEADERS` | Trust `X-Forwarded-For` headers for client IP detection (enable only behind a trusted reverse proxy). | `false` |
 
 ---
 
@@ -238,7 +258,7 @@ Useful for resetting a user's password or regular security updates.
 ```bash
 ./kopds delete-user <username>
 ```
-This will permanently remove the user and all their reading progress from the database.
+This will permanently remove the user from the database.
 
 ### Automated Setup (Non-interactive)
 For Docker initialization or scripts, you can use the `--password-stdin` flag:
@@ -250,37 +270,16 @@ User-management commands create and migrate the configured database automaticall
 
 ---
 
-## ⚙️ Configuration Reference
-
-All settings can be provided as environment variables (prefixed with `KOPDS_`) or in a `config.yaml` file.
-
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `KOPDS_LIBRARY_PATH` | Path to your Calibre library folder. | - |
-| `KOPDS_DATABASE_PATH` | Path where the local SQLite index will be stored. | `./data/kopds.db` |
-| `KOPDS_BASE_URL` | The external URL used for generating OPDS links. | `http://localhost:8080` |
-| `KOPDS_PORT` | The port the server listens on. | `8080` |
-| `KOPDS_LOG_LEVEL` | Logging verbosity (`debug`, `info`, `warn`, `error`). | `info` |
-| `KOPDS_JSON_LOG` | Enable structured JSON logging (best for ELK/Loki). | `false` |
-| `KOPDS_LOG_PATH` | File path for unified logging. | - |
-| `KOPDS_SYNC_INTERVAL` | How often to scan Calibre for changes (e.g., `1h`, `30m`). | `30m` |
-| `KOPDS_IMAGE_CACHE_PATH` | Directory for resized cover thumbnails. | `cache/images` |
-| `KOPDS_IMAGE_CACHE_MAX_COUNT` | Maximum number of images to keep in cache. | `1000` |
-| `KOPDS_STORAGE_CAP_MB` | Maximum database size in MB (0 to disable). | `0` |
-| `KOPDS_RATE_LIMIT_ENABLED` | Enable rate limiting on failed authentication attempts. | `true` |
-| `KOPDS_RATE_LIMIT_PER_MINUTE` | Maximum failed auth attempts allowed per minute per IP. | `30` |
-| `KOPDS_RATE_LIMIT_BURST` | Maximum burst size for failed auth rate limiting. | `10` |
-| `KOPDS_TRUST_PROXY_HEADERS` | Trust `X-Forwarded-For` headers for client IP detection (enable only behind a trusted reverse proxy). | `false` |
-
----
-
-## 📊 Advanced Logging
+## 📊 Logging
 
 KOPDS uses structured logging via the Go standard library `slog` to provide clear and actionable insights into the server's operation. All logs include a `request_id` for correlating multiple events from a single request.
 
 ### Log Formats
 - **Human-Readable (Default):** Optimized for terminal viewing. Best for local development and native deployments.
 - **JSON:** Structured output that is easy to parse by log aggregators like **Promtail/Loki**, **Elasticsearch**, or **CloudWatch**. Enable this with `KOPDS_JSON_LOG=true`.
+
+### Log Destinations
+When `KOPDS_LOG_PATH` is set, the **server** writes structured logs to both stderr and that file. **CLI** commands (`create-user`, `delete-user`, `change-password`) write structured logs to the file only — or discard them when no path is set — so the terminal shows only the one-line human-readable result.
 
 ### Log Levels
 You can adjust the verbosity of the logs using the `KOPDS_LOG_LEVEL` setting:
@@ -308,7 +307,7 @@ You can adjust the verbosity of the logs using the `KOPDS_LOG_LEVEL` setting:
 
 ---
 
-## 🏗 Technical Architecture
+## 🏗 Technical Overview
 
 KOPDS is designed for speed and reliability, especially in home lab environments where libraries are often stored on network-attached storage (NAS).
 
@@ -330,26 +329,21 @@ To ensure cover thumbnails load instantly on e-ink devices:
 - **Caching:** Implements a disk-based LRU (Least Recently Used) cache. Once a cover is resized, it's served instantly from the local SSD for subsequent requests. This prevents the server from having to read large image files across the network more than once.
 - **Security:** Bounds image dimensions and input sizes to prevent DoS attacks.
 
----
-
-## 🔒 Security & Deployment
-
-### Reverse Proxy
-KOPDS uses **HTTP Basic Authentication**. While simple and widely compatible, it transmits credentials in plain text. **You should always deploy KOPDS behind a reverse proxy** (like Caddy, Nginx, or Traefik) that provides **HTTPS**.
-
-**Example Caddyfile:**
-```caddy
-kopds.example.com {
-    reverse_proxy localhost:8080
-}
-```
-> [!NOTE]
-> A reverse proxy alone does not make your server completely secure.  You are responsible for properly configuring your server to meet your security needs.
-
 ### Storage Performance
 For the best experience:
 - **Calibre Library:** Can be on a slow HDD or network share (SMB/NFS).
 - **KOPDS Data/Cache:** **Should** be on local high-speed storage (SSD/NVMe). This ensures the SQLite index and image cache are highly responsive.
+
+---
+
+## 🔒 Security
+
+KOPDS uses **HTTP Basic Authentication**. It is simple and widely compatible, but it transmits credentials in plain text, so you should **always run KOPDS behind an HTTPS reverse proxy** (such as Caddy, Nginx, or Traefik).
+
+Step-by-step deployment instructions — reverse proxy, firewall, backups, and running KOPDS and KOSYNC together — live in the KOSERVER project deployment guide.
+
+> [!NOTE]
+> A reverse proxy alone does not make your server completely secure.  You are responsible for properly configuring your server to meet your security needs.
 
 ---
 
@@ -379,4 +373,3 @@ For the best experience:
 ## 📜 License
 
 KOPDS is released under the **GPL-3.0 License**. See the [LICENSE](LICENSE) file for details.
-(LICENSE) file for details.
