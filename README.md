@@ -55,7 +55,7 @@ While many OPDS servers exist, KOPDS focuses on three core pillars:
 Before you begin, ensure your environment meets the following requirements.
 
 ### Data Requirements
-- **Calibre Library:** A folder containing your books and the `metadata.db` file.
+- **Calibre Library:** A local or remote folder containing your books and the `metadata.db` file.
 
 ### Software Requirements
 
@@ -76,7 +76,6 @@ go version
 
 #### 3. Cloud/Remote Calibre Library Synchronization
 - KOPDS is designed for serving a remote Calibre library efficiently, but you will need a way to sync the remote library to the machine running KOPDS.  Rclone is recommended over davfs2 due to better stability, and more graceful handling of network blips.  Rclone also offers finer control allowing you to throttle the connection if needed to avoid overwhelming a resource constrained server during the initial library metadata scan.  Rclone is also written in Go, maintaining a pure Go environment.
-
 - *To install Rclone, see the [official documentation](https://rclone.org/install/).*
 
 #### 4. Reverse Proxy (recommended for production)
@@ -120,7 +119,10 @@ Create a file named `deploy/docker-compose.yml` and paste the following content.
 ```yaml
 services:
   kopds:
-    image: ghcr.io/nlafevers/kopds:latest # or build: .
+    build:
+      context: ..
+      dockerfile: build/Dockerfile
+    image: ghcr.io/nlafevers/kopds:latest
     container_name: kopds
     restart: unless-stopped
     ports:
@@ -131,7 +133,7 @@ services:
     volumes:
       # Path to your Calibre library (keep this read-only)
       - /path/to/your/calibre/library:/library:ro # [HOST_DIR:CONTAINER_DIR:OPTIONS]
-
+      
       # Persistence for KOPDS index and cache (should be on local SSD)
       - kopds_data:/data
       - kopds_cache:/cache
@@ -153,6 +155,10 @@ volumes:
 Start the server in the background:
 ```bash
 docker compose up -d
+```
+To force a local build, rather than downloading the image from the Github Container Registry add the `--build` option.
+```bash
+docker compose up -d --build
 ```
 
 ### 4. Create Your Admin User
@@ -201,12 +207,20 @@ cd kopds
 go build -o kopds ./cmd/kopds
 ```
 
-### 2. Configure and Run
+### 2. Run as a non-root user
+Create a dedicated system user to run the service securely, and give it ownership of the binary and the data directory.
+```bash
+sudo useradd -r -s /usr/sbin/nologin kopds
+sudo mkdir -p data
+sudo chown -R kopds:kopds kopds data
+```
+
+### 3. Configure and Run
 KOPDS reads its settings from environment variables or a `config.yaml` file (see [Configuration Reference](#-configuration-reference) for every option). At minimum, set the path to your Calibre library, create a user, and start the server:
 ```bash
 export KOPDS_LIBRARY_PATH=/path/to/calibre
-./kopds create-user admin
-./kopds
+sudo -u kopds ./kopds create-user admin
+sudo -u kopds ./kopds
 ```
 
 > [!NOTE]
