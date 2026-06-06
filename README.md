@@ -37,6 +37,8 @@ While many OPDS servers exist, KOPDS focuses on three core pillars:
 2.  **Resource Efficiency:** Built in pure Go, KOPDS has a minimal memory footprint and compiles to a single, portable binary (~15MB), making it ideal for low-power devices like Raspberry Pis, home servers, or free-tier cloud VMs.
 3.  **KOReader Optimization:** Designed with the specific requirements of KOReader in mind, ensuring a seamless book discovery and acquisition experience.
 
+> **Part of a pair:** KOPDS is one half of [KOSERVER](https://github.com/nlafevers/koserver), a complete self-hosted KOReader backend. Its companion, [KOSYNC](https://github.com/nlafevers/kosync), keeps your reading progress in sync across devices. See the [KOSERVER guide](https://github.com/nlafevers/koserver) to deploy both together behind a single HTTPS reverse proxy.
+
 ---
 
 ## ✨ Key Features
